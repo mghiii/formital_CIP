@@ -1,0 +1,19 @@
+[project]
+name = "digital-cip-api"
+version = "0.1.0"
+description = "API FastAPI pour Digital CIP"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115.0",
+  "pydantic>=2.8.0",
+  "pydantic-settings>=2.5.0",
+  "httpx>=0.27.0"
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
