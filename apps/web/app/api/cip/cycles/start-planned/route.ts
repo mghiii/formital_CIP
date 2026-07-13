@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { getRouteAuthContext } from "@/lib/auth/api";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 function checked(formData: FormData, name: string) {
   return formData.get(name) === "on";
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = createServerSupabaseClient();
+  const context = await getRouteAuthContext();
   const formData = await request.formData();
   const cycleId = String(formData.get("cycle_id") ?? "");
   const returnTo = request.headers.get("referer") ?? "/operator/dashboard";
@@ -25,15 +25,25 @@ export async function POST(request: NextRequest) {
     return redirectAfterPost(new URL(`${cleanReturnTo}?error=missing-cycle`, request.url));
   }
 
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  if (!context) {
     return redirectAfterPost(new URL("/login", request.url));
   }
 
+  const { supabase, user } = context;
   const db = createAdminSupabaseClient() ?? supabase;
+
+  const { data: plannedCycle } = await db
+    .from("cip_cycles")
+    .select("id, equipment_id, status, equipments(status, is_active)")
+    .eq("id", cycleId)
+    .eq("status", "draft")
+    .single();
+
+  const equipment = Array.isArray(plannedCycle?.equipments) ? plannedCycle?.equipments[0] : plannedCycle?.equipments;
+
+  if (!plannedCycle?.id || equipment?.is_active === false || ["cleaning", "in_cleaning", "out_of_service"].includes(String(equipment?.status ?? ""))) {
+    return redirectAfterPost(new URL(`${cleanReturnTo}?error=cycle-unavailable`, request.url));
+  }
 
   const checklist = {
     cycle_id: cycleId,

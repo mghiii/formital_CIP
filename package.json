@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "cd apps/web && ./node_modules/.bin/next dev --hostname 127.0.0.1 --port 3000",
     "build": "node scripts/validate-auth-phase.mjs",
-    "test": "node --test scripts/auth-phase.test.mjs",
+    "test": "node --test scripts/*.test.mjs",
     "lint": "node scripts/validate-auth-phase.mjs --lint",
     "users:create": "node scripts/create-auth-users.mjs"
   },

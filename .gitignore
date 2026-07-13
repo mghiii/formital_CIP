@@ -4,6 +4,7 @@
 # Supabase local cache and linked-project metadata
 supabase/.temp/
 supabase/.branches/
+.codex-supabase-home/
 
 # Environment files and local secrets
 .env

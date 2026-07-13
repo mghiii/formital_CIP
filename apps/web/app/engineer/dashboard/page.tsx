@@ -5,7 +5,7 @@ import { getCipDashboardData } from "@/lib/cip/data";
 
 export default async function EngineerDashboardPage() {
   const profile = await requireProfile("/engineer/dashboard");
-  const data = await getCipDashboardData();
+  const data = await getCipDashboardData(profile);
 
   return (
     <AppShell

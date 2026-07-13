@@ -5,7 +5,7 @@ import { getCipDashboardData } from "@/lib/cip/data";
 
 export default async function AdminUsersPage() {
   const profile = await requireProfile("/admin/users");
-  const data = await getCipDashboardData();
+  const data = await getCipDashboardData(profile);
 
   return (
     <AppShell profile={profile} activePath="/admin/users" title="Utilisateurs" subtitle="Comptes, roles et statut actif" alertCount={data.metrics.activeAlerts}>

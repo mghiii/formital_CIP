@@ -1,13 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { getRouteAuthContext, isPrivilegedProfile } from "@/lib/auth/api";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 function checked(formData: FormData, name: string) {
   return formData.get(name) === "on";
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = createServerSupabaseClient();
+  const context = await getRouteAuthContext();
   const formData = await request.formData();
   const cycleId = String(formData.get("cycle_id") ?? "");
   const intent = String(formData.get("intent") ?? "save");
@@ -18,15 +18,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.redirect(new URL(`${cleanReturnTo}?error=missing-cycle`, request.url));
   }
 
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  if (!context) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
+  const { supabase, user, profile } = context;
+  const isPrivileged = isPrivilegedProfile(profile);
   const db = createAdminSupabaseClient() ?? supabase;
+
+  const { data: cycle } = await db
+    .from("cip_cycles")
+    .select("id, operator_id, status")
+    .eq("id", cycleId)
+    .single();
+
+  const canEditCycle =
+    isPrivileged ||
+    cycle?.operator_id === user.id ||
+    (profile.role === "operator" && cycle?.status === "draft");
+
+  if (!cycle?.id || !canEditCycle) {
+    return NextResponse.redirect(new URL("/unauthorized", request.url));
+  }
 
   const payload = {
     cycle_id: cycleId,
@@ -63,10 +76,12 @@ export async function POST(request: NextRequest) {
     const { error: cycleError } = await db
       .from("cip_cycles")
       .update({
+        operator_id: user.id,
         status: "in_progress",
         started_at: new Date().toISOString()
       })
-      .eq("id", cycleId);
+      .eq("id", cycleId)
+      .in("status", ["draft", "in_progress"]);
 
     if (cycleError) {
       return NextResponse.redirect(new URL(`${cleanReturnTo}?error=cycle-start`, request.url));

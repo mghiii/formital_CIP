@@ -1,12 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getRouteAuthContext } from "@/lib/auth/api";
 
 function checked(formData: FormData, name: string) {
   return formData.get(name) === "on";
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = createServerSupabaseClient();
+  const context = await getRouteAuthContext();
   const formData = await request.formData();
   const equipmentId = String(formData.get("equipment_id") ?? "");
   const returnTo = request.headers.get("referer") ?? "/operator/dashboard";
@@ -30,26 +30,36 @@ export async function POST(request: NextRequest) {
     return NextResponse.redirect(new URL(`${cleanReturnTo}?error=checklist-incomplete`, request.url));
   }
 
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  if (!context) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
+  const { supabase, user } = context;
+
   const { data: equipment, error: equipmentError } = await supabase
     .from("equipments")
-    .select("id, process_id, status")
+    .select("id, process_id, status, is_active")
     .eq("id", equipmentId)
     .single();
 
-  if (equipmentError || !equipment?.process_id) {
+  if (equipmentError || !equipment?.process_id || equipment.is_active === false) {
     return NextResponse.redirect(new URL(`${cleanReturnTo}?error=equipment-process`, request.url));
   }
 
-  if (["in_cleaning", "out_of_service"].includes(String(equipment.status))) {
+  if (["cleaning", "in_cleaning", "out_of_service"].includes(String(equipment.status))) {
     return NextResponse.redirect(new URL(`${cleanReturnTo}?error=equipment-unavailable`, request.url));
+  }
+
+  const { data: activeCycle } = await supabase
+    .from("cip_cycles")
+    .select("id")
+    .eq("equipment_id", equipment.id)
+    .in("status", ["draft", "in_progress"])
+    .limit(1)
+    .maybeSingle();
+
+  if (activeCycle?.id) {
+    return NextResponse.redirect(new URL(`${cleanReturnTo}?error=equipment-has-active-cycle`, request.url));
   }
 
   const { data: cycle, error: cycleError } = await supabase

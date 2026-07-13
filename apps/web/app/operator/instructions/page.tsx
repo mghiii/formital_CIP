@@ -5,7 +5,7 @@ import { getCipDashboardData } from "@/lib/cip/data";
 
 export default async function OperatorInstructionsPage() {
   const profile = await requireProfile("/operator/instructions");
-  const data = await getCipDashboardData();
+  const data = await getCipDashboardData(profile);
 
   return (
     <AppShell profile={profile} activePath="/operator/instructions" title="Instructions CIP" subtitle="Consignes par atelier et equipement" alertCount={data.metrics.activeAlerts}>

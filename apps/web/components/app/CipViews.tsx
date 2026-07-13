@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { AddEquipmentModal } from "@/components/app/AddEquipmentModal";
+import { AllCyclesGraphModal } from "@/components/app/AllCyclesGraphModal";
 import { ChecklistPreviewModal } from "@/components/app/ChecklistPreviewModal";
 import { CycleDetailsTable } from "@/components/app/CycleDetailsTable";
 import { CycleTimer } from "@/components/app/CycleTimer";
@@ -43,27 +44,46 @@ function StatusBadge({ value }: { value: string }) {
   return <span className={`inline-flex shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-xs font-bold ${tone}`}>{value}</span>;
 }
 
-function SectionCard({ title, action, actionHref, children }: { title: string; action?: string; actionHref?: string; children: ReactNode }) {
+function SectionCard({
+  title,
+  action,
+  actionHref,
+  actionNode,
+  className = "",
+  bodyClassName = "",
+  children
+}: {
+  title: string;
+  action?: string;
+  actionHref?: string;
+  actionNode?: ReactNode;
+  className?: string;
+  bodyClassName?: string;
+  children: ReactNode;
+}) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition-colors">
+    <section className={`self-start rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition-colors ${className}`}>
       <div className="mb-4 flex items-center justify-between gap-4">
         <h2 className="text-lg font-bold text-slate-950">{title}</h2>
-        {action && actionHref ? (
-          <a href={actionHref} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-formital-green">
-            {action}
-          </a>
-        ) : action ? (
-          <button className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-formital-green">{action}</button>
-        ) : null}
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          {actionNode}
+          {action && actionHref ? (
+            <a href={actionHref} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-formital-green">
+              {action}
+            </a>
+          ) : action ? (
+            <button className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-formital-green">{action}</button>
+          ) : null}
+        </div>
       </div>
-      {children}
+      <div className={bodyClassName}>{children}</div>
     </section>
   );
 }
 
 function EmptyState({ children }: { children: ReactNode }) {
   return (
-    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-6 text-sm font-semibold text-slate-500">
+    <div className="grid min-h-40 place-items-center rounded-lg border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm font-semibold text-slate-500">
       {children}
     </div>
   );
@@ -75,6 +95,10 @@ export function QualityDashboardView({ data = fallbackData }: { data?: CipDashbo
   const activeCycles = data.cycles.filter((cycle) => ["En cours", "Planifie"].includes(cycle.status));
   const compliantCycles = completedCycles.filter((cycle) => cycle.result === "Conforme").length;
   const nonCompliantCycles = completedCycles.filter((cycle) => cycle.result === "Non conforme").length;
+  const tallCard = "flex h-full min-h-[34rem] flex-col self-stretch";
+  const mediumCard = "flex h-full min-h-[24rem] flex-col self-stretch";
+  const tableCard = "flex h-full min-h-[32rem] flex-col self-stretch";
+  const cardBody = "flex min-h-0 flex-1 flex-col";
   const completedResultRows = [
     ["Conformes", compliantCycles, "bg-formital-green"],
     ["Non conformes", nonCompliantCycles, "bg-red-500"]
@@ -88,40 +112,55 @@ export function QualityDashboardView({ data = fallbackData }: { data?: CipDashbo
         <KpiCard label="Consommation eau" value={`${metrics.water} m3`} trend="Total" tone="blue" />
         <KpiCard label="Consommation detergent" value={`${metrics.detergent} L`} trend="Total" tone="green" />
       </div>
-      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <SectionCard title="Cycles par jour" action="10 derniers jours">
+      <div className="grid items-stretch gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+        <SectionCard title="Cycles par jour" action="10 derniers jours" actionNode={<AllCyclesGraphModal cycles={data.cycles} equipments={data.equipments} />} className={tallCard} bodyClassName={cardBody}>
           <MiniLineChart values={data.dailyCycles} />
         </SectionCard>
-        <SectionCard title="Conformite des cycles">
+        <SectionCard title="Conformite des cycles" className={tallCard} bodyClassName={cardBody}>
           <ComplianceDonutLite value={metrics.compliance} compliant={compliantCycles} nonCompliant={nonCompliantCycles} />
         </SectionCard>
       </div>
-      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <CyclesTable compact cycles={completedCycles} checklists={data.checklists} />
-        <SectionCard title="Consommation periode selectionnee">
+      <div className="grid items-stretch gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+        <CyclesTable compact cycles={completedCycles} checklists={data.checklists} cardClassName={tableCard} bodyClassName={cardBody} />
+        <SectionCard title="Consommation periode selectionnee" className={tableCard} bodyClassName={cardBody}>
           <ConsumptionBars values={data.waterConsumption} altValues={data.detergentConsumption} />
-          <div className="mt-4 flex gap-4 text-sm text-slate-600">
-            <span><b className="text-sky-600">Eau</b> m3</span>
-            <span><b className="text-formital-green">Detergent</b> L</span>
-          </div>
         </SectionCard>
       </div>
-      <div className="grid gap-6 xl:grid-cols-3">
-        <SectionCard title="Resultats des cycles termines">
+      <div className="grid items-stretch gap-6 xl:grid-cols-3">
+        <SectionCard title="Resultats des cycles termines" className={mediumCard} bodyClassName={cardBody}>
           <HorizontalMetricBars rows={completedResultRows} total={Math.max(completedCycles.length, 1)} />
         </SectionCard>
-        <SectionCard title="Machines par atelier">
+        <SectionCard title="Machines par atelier" className={mediumCard} bodyClassName={cardBody}>
           <WorkshopLoadChart data={data} />
         </SectionCard>
-        <SectionCard title="Statut des equipements">
+        <SectionCard title="Statut des equipements" className={mediumCard} bodyClassName={cardBody}>
           <EquipmentStatusChart data={data} />
         </SectionCard>
       </div>
-      <div className="grid gap-6 xl:grid-cols-2">
-        <SectionCard title="Cycles en cours et planifies">
+      <div className="grid items-stretch gap-6 xl:grid-cols-3">
+        <SectionCard title="Performance par programme CIP" className={tallCard} bodyClassName={cardBody}>
+          <ProcessDecisionMatrix cycles={completedCycles} />
+        </SectionCard>
+        <SectionCard title="Ecart duree cible / reel" className={tallCard} bodyClassName={cardBody}>
+          <DurationGapChart cycles={completedCycles} />
+        </SectionCard>
+        <SectionCard title="Consommation moyenne par cycle" className={tallCard} bodyClassName={cardBody}>
+          <ResourceEfficiencyChart cycles={completedCycles} />
+        </SectionCard>
+      </div>
+      <div className="grid items-stretch gap-6 xl:grid-cols-[1fr_1fr]">
+        <SectionCard title="Priorites d'amelioration" className={mediumCard} bodyClassName={cardBody}>
+          <ImprovementPriorityBoard cycles={completedCycles} equipments={data.equipments} alerts={data.alerts} />
+        </SectionCard>
+        <SectionCard title="Suivi operationnel des cycles" className={mediumCard} bodyClassName={cardBody}>
+          <CycleFollowUpChart cycles={data.cycles} />
+        </SectionCard>
+      </div>
+      <div className="grid items-stretch gap-6 xl:grid-cols-2">
+        <SectionCard title="Cycles en cours et planifies" className={tableCard} bodyClassName={cardBody}>
           <CycleDetailsTable cycles={activeCycles} checklists={data.checklists} />
         </SectionCard>
-        <SectionCard title="Cycles termines">
+        <SectionCard title="Cycles termines" className={tableCard} bodyClassName={cardBody}>
           <CycleDetailsTable cycles={completedCycles} checklists={data.checklists} />
         </SectionCard>
       </div>
@@ -132,28 +171,62 @@ export function QualityDashboardView({ data = fallbackData }: { data?: CipDashbo
 
 function ComplianceDonutLite({ value, compliant, nonCompliant }: { value: number; compliant: number; nonCompliant: number }) {
   const total = compliant + nonCompliant;
-  const background = total > 0 ? `conic-gradient(#1f7a3a 0 ${value}%, #ef4444 ${value}% 100%)` : "conic-gradient(#e5e7eb 0 100%)";
+  const compliantWidth = total > 0 ? Math.max(4, (compliant / total) * 100) : 0;
+  const nonCompliantWidth = total > 0 ? Math.max(nonCompliant > 0 ? 4 : 0, (nonCompliant / total) * 100) : 0;
+  const target = 95;
+  const gap = Math.max(0, Math.round((target - value) * 10) / 10);
+
+  if (total === 0) {
+    return <EmptyState>Aucun cycle termine pour calculer la conformite.</EmptyState>;
+  }
 
   return (
-    <div className="grid gap-4 md:grid-cols-[230px_1fr] md:items-center">
-      <div className="relative grid h-56 place-items-center">
-        <div
-          className="h-44 w-44 rounded-full"
-          style={{ background }}
-        />
-        <div className="absolute grid h-28 w-28 place-items-center rounded-full bg-white text-center shadow-inner">
-          <span className="text-3xl font-bold">{value}%</span>
+    <div className="flex h-full flex-col gap-5">
+      <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-[#315941] dark:bg-[#07170f]">
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-muted">Taux de conformite</p>
+            <p className="mt-1 text-4xl font-bold tracking-tight text-slate-950">{value}%</p>
+          </div>
+          <span className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-xs font-bold ${value >= target ? "bg-green-50 text-formital-green" : "bg-amber-50 text-amber-700"}`}>
+            Objectif {target}%
+          </span>
+        </div>
+        <div className="relative mt-5 h-5 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
+          <div className="absolute inset-y-0 left-0 bg-formital-green" style={{ width: `${compliantWidth}%` }} />
+          <div className="absolute inset-y-0 right-0 bg-red-500" style={{ width: `${nonCompliantWidth}%` }} />
+          <div className="absolute inset-y-[-0.25rem] w-0.5 bg-slate-950/40 dark:bg-white/70" style={{ left: `${target}%` }} />
+        </div>
+        <div className="mt-2 flex justify-between text-xs font-bold text-muted">
+          <span>0%</span>
+          <span>Objectif</span>
+          <span>100%</span>
         </div>
       </div>
-      <div className="space-y-4 text-sm">
-        <div className="flex items-center justify-between rounded-lg bg-green-50 px-4 py-3">
-          <span className="font-semibold text-formital-green">Conformes</span>
-          <span className="font-bold">{compliant} cycles</span>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-lg bg-green-50 px-4 py-3 dark:bg-green-500/10">
+          <div className="flex items-center justify-between gap-3">
+            <span className="font-bold text-formital-green">Conformes</span>
+            <span className="font-bold text-slate-950">{compliant} cycles</span>
+          </div>
+          <div className="mt-3 h-2 rounded-full bg-white dark:bg-white/10">
+            <div className="h-2 rounded-full bg-formital-green" style={{ width: `${compliantWidth}%` }} />
+          </div>
         </div>
-        <div className="flex items-center justify-between rounded-lg bg-red-50 px-4 py-3">
-          <span className="font-semibold text-red-700">Non conformes</span>
-          <span className="font-bold">{nonCompliant} cycles</span>
+        <div className="rounded-lg bg-red-50 px-4 py-3 dark:bg-red-500/10">
+          <div className="flex items-center justify-between gap-3">
+            <span className="font-bold text-red-700">Non conformes</span>
+            <span className="font-bold text-slate-950">{nonCompliant} cycles</span>
+          </div>
+          <div className="mt-3 h-2 rounded-full bg-white dark:bg-white/10">
+            <div className="h-2 rounded-full bg-red-500" style={{ width: `${nonCompliantWidth}%` }} />
+          </div>
         </div>
+      </div>
+      <div className={`mt-auto rounded-lg px-4 py-3 text-sm font-semibold ${gap > 0 ? "bg-amber-50 text-amber-700 dark:bg-amber-500/10" : "bg-green-50 text-formital-green dark:bg-green-500/10"}`}>
+        {gap > 0
+          ? `Il manque ${gap} point${gap > 1 ? "s" : ""} pour atteindre l'objectif qualite. Priorite: analyser les cycles non conformes.`
+          : "Objectif qualite atteint sur les cycles termines."}
       </div>
     </div>
   );
@@ -161,7 +234,7 @@ function ComplianceDonutLite({ value, compliant, nonCompliant }: { value: number
 
 function HorizontalMetricBars({ rows, total }: { rows: ReadonlyArray<readonly [string, number, string]>; total: number }) {
   return (
-    <div className="grid gap-4">
+    <div className="grid h-full content-start gap-4">
       {rows.map(([label, value, color]) => (
         <div key={label}>
           <div className="mb-2 flex items-center justify-between text-sm">
@@ -198,6 +271,223 @@ function EquipmentStatusChart({ data }: { data: CipDashboardData }) {
   ] as const;
 
   return <HorizontalMetricBars rows={rows} total={Math.max(data.equipments.length, 1)} />;
+}
+
+type ProcessStats = {
+  name: string;
+  count: number;
+  compliant: number;
+  nonCompliant: number;
+  compliance: number;
+  avgDuration: number;
+  avgTarget: number;
+  avgWater: number;
+  avgDetergent: number;
+  durationGap: number;
+};
+
+function average(values: number[]) {
+  if (values.length === 0) return 0;
+  return Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 10) / 10;
+}
+
+function groupProcessStats(cycles: CipDashboardData["cycles"]): ProcessStats[] {
+  const groups = new Map<string, CipDashboardData["cycles"]>();
+
+  for (const cycle of cycles) {
+    const rows = groups.get(cycle.process) ?? [];
+    rows.push(cycle);
+    groups.set(cycle.process, rows);
+  }
+
+  return Array.from(groups.entries())
+    .map(([name, rows]) => {
+      const compliant = rows.filter((cycle) => cycle.result === "Conforme").length;
+      const nonCompliant = rows.filter((cycle) => cycle.result === "Non conforme").length;
+      const avgDuration = average(rows.map((cycle) => cycle.duration));
+      const avgTarget = average(rows.map((cycle) => cycle.targetDurationMinutes));
+
+      return {
+        name,
+        count: rows.length,
+        compliant,
+        nonCompliant,
+        compliance: rows.length ? Math.round((compliant / rows.length) * 1000) / 10 : 0,
+        avgDuration,
+        avgTarget,
+        avgWater: average(rows.map((cycle) => cycle.water)),
+        avgDetergent: average(rows.map((cycle) => cycle.detergent)),
+        durationGap: Math.round((avgDuration - avgTarget) * 10) / 10
+      };
+    })
+    .sort((a, b) => b.count - a.count || a.compliance - b.compliance);
+}
+
+function ProcessDecisionMatrix({ cycles }: { cycles: CipDashboardData["cycles"] }) {
+  const rows = groupProcessStats(cycles).slice(0, 6);
+
+  if (rows.length === 0) return <EmptyState>Aucun cycle termine pour analyser les programmes.</EmptyState>;
+
+  return (
+    <div className="grid min-h-0 flex-1 content-start gap-3 overflow-y-auto pr-1">
+      {rows.map((row) => (
+        <div key={row.name} className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-[#315941] dark:bg-[#07170f]">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold text-slate-950">{row.name}</p>
+              <p className="mt-1 text-xs text-muted">{row.count} cycles termines</p>
+            </div>
+            <span className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-xs font-bold ${row.compliance >= 90 ? "bg-green-50 text-formital-green" : row.compliance >= 75 ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700"}`}>
+              {row.compliance}%
+            </span>
+          </div>
+          <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+            <div className="rounded-lg bg-white p-2 dark:bg-white/5">
+              <span className="text-muted">Duree moy.</span>
+              <b className="mt-1 block text-slate-950">{row.avgDuration} min</b>
+            </div>
+            <div className="rounded-lg bg-white p-2 dark:bg-white/5">
+              <span className="text-muted">Eau/cycle</span>
+              <b className="mt-1 block text-slate-950">{row.avgWater} L</b>
+            </div>
+            <div className="rounded-lg bg-white p-2 dark:bg-white/5">
+              <span className="text-muted">Det./cycle</span>
+              <b className="mt-1 block text-slate-950">{row.avgDetergent} L</b>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DurationGapChart({ cycles }: { cycles: CipDashboardData["cycles"] }) {
+  const rows = groupProcessStats(cycles)
+    .filter((row) => row.count > 0)
+    .sort((a, b) => Math.abs(b.durationGap) - Math.abs(a.durationGap))
+    .slice(0, 6);
+  const maxGap = Math.max(...rows.map((row) => Math.abs(row.durationGap)), 1);
+
+  if (rows.length === 0) return <EmptyState>Aucune duree terminee disponible.</EmptyState>;
+
+  return (
+    <div className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto pr-1">
+      {rows.map((row) => {
+        const delayed = row.durationGap > 0;
+        return (
+          <div key={row.name}>
+            <div className="mb-2 flex items-center justify-between gap-3 text-sm">
+              <span className="truncate font-semibold text-slate-700">{row.name}</span>
+              <span className={`shrink-0 whitespace-nowrap font-bold ${delayed ? "text-red-700" : "text-formital-green"}`}>
+                {delayed ? "+" : ""}{row.durationGap} min
+              </span>
+            </div>
+            <div className="h-2.5 rounded-full bg-slate-100 dark:bg-white/10">
+              <div
+                className={`h-2.5 rounded-full ${delayed ? "bg-red-500" : "bg-formital-green"}`}
+                style={{ width: `${Math.max(8, (Math.abs(row.durationGap) / maxGap) * 100)}%` }}
+              />
+            </div>
+            <p className="mt-1 text-xs text-muted">Reel {row.avgDuration} min / cible {row.avgTarget} min</p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ResourceEfficiencyChart({ cycles }: { cycles: CipDashboardData["cycles"] }) {
+  const rows = groupProcessStats(cycles).sort((a, b) => (b.avgWater + b.avgDetergent) - (a.avgWater + a.avgDetergent)).slice(0, 6);
+  const maxValue = Math.max(...rows.flatMap((row) => [row.avgWater, row.avgDetergent]), 1);
+
+  if (rows.length === 0) return <EmptyState>Aucune consommation terminee disponible.</EmptyState>;
+
+  return (
+    <div className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto pr-1">
+      {rows.map((row) => (
+        <div key={row.name}>
+          <div className="mb-2 flex items-center justify-between gap-3 text-sm">
+            <span className="truncate font-semibold text-slate-700">{row.name}</span>
+            <span className="shrink-0 text-xs font-bold text-muted">{row.count} cycles</span>
+          </div>
+          <div className="grid gap-2">
+            <div className="grid grid-cols-[4rem_1fr_4.5rem] items-center gap-2 text-xs">
+              <span className="font-bold text-sky-600">Eau</span>
+              <div className="h-2.5 rounded-full bg-slate-100 dark:bg-white/10">
+                <div className="h-2.5 rounded-full bg-sky-500" style={{ width: `${Math.max(5, (row.avgWater / maxValue) * 100)}%` }} />
+              </div>
+              <b className="text-right">{row.avgWater} L</b>
+            </div>
+            <div className="grid grid-cols-[4rem_1fr_4.5rem] items-center gap-2 text-xs">
+              <span className="font-bold text-formital-green">Det.</span>
+              <div className="h-2.5 rounded-full bg-slate-100 dark:bg-white/10">
+                <div className="h-2.5 rounded-full bg-formital-green" style={{ width: `${Math.max(5, (row.avgDetergent / maxValue) * 100)}%` }} />
+              </div>
+              <b className="text-right">{row.avgDetergent} L</b>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ImprovementPriorityBoard({
+  cycles,
+  equipments,
+  alerts
+}: {
+  cycles: CipDashboardData["cycles"];
+  equipments: CipDashboardData["equipments"];
+  alerts: CipDashboardData["alerts"];
+}) {
+  const processRows = groupProcessStats(cycles);
+  const lowestProcess = processRows.filter((row) => row.count > 0).sort((a, b) => a.compliance - b.compliance || b.durationGap - a.durationGap)[0];
+  const slowestProcess = processRows.filter((row) => row.durationGap > 0).sort((a, b) => b.durationGap - a.durationGap)[0];
+  const resourceProcess = processRows.sort((a, b) => (b.avgWater + b.avgDetergent) - (a.avgWater + a.avgDetergent))[0];
+  const riskyEquipment = equipments.filter((equipment) => equipment.compliance > 0).sort((a, b) => a.compliance - b.compliance)[0];
+  const activeAlerts = alerts.filter((alert) => alert.status === "Active");
+  const rows = [
+    lowestProcess ? ["Qualite", lowestProcess.name, `${lowestProcess.compliance}% conformite`, "bg-red-50 text-red-700"] : null,
+    slowestProcess ? ["Temps", slowestProcess.name, `+${slowestProcess.durationGap} min vs cible`, "bg-amber-50 text-amber-700"] : null,
+    resourceProcess ? ["Ressources", resourceProcess.name, `${Math.round((resourceProcess.avgWater + resourceProcess.avgDetergent) * 10) / 10} L/cycle`, "bg-sky-100 text-sky-700"] : null,
+    riskyEquipment ? ["Machine", riskyEquipment.name, `${riskyEquipment.compliance}% conformite`, "bg-red-50 text-red-700"] : null,
+    activeAlerts.length ? ["Alertes", `${activeAlerts.length} alerte${activeAlerts.length > 1 ? "s" : ""} active${activeAlerts.length > 1 ? "s" : ""}`, "Action corrective a suivre", "bg-amber-50 text-amber-700"] : null
+  ].filter(Boolean) as Array<[string, string, string, string]>;
+
+  if (rows.length === 0) return <EmptyState>Aucune priorite critique detectee pour le moment.</EmptyState>;
+
+  return (
+    <div className="grid h-full content-start gap-3 md:grid-cols-2">
+      {rows.slice(0, 4).map(([label, title, detail, tone]) => (
+        <div key={`${label}-${title}`} className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-[#315941] dark:bg-[#07170f]">
+          <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${tone}`}>{label}</span>
+          <p className="mt-3 font-bold text-slate-950">{title}</p>
+          <p className="mt-1 text-sm text-muted">{detail}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CycleFollowUpChart({ cycles }: { cycles: CipDashboardData["cycles"] }) {
+  const rows = [
+    ["Planifies", cycles.filter((cycle) => cycle.status === "Planifie").length, "bg-amber-500"],
+    ["En cours", cycles.filter((cycle) => cycle.status === "En cours").length, "bg-sky-500"],
+    ["Termines", cycles.filter((cycle) => cycle.status === "Termine").length, "bg-formital-green"],
+    ["Bloques", cycles.filter((cycle) => cycle.status === "Bloque").length, "bg-red-500"]
+  ] as const;
+  const total = Math.max(cycles.length, 1);
+
+  return (
+    <div className="grid h-full content-start gap-4">
+      <HorizontalMetricBars rows={rows} total={total} />
+      <div className="rounded-lg bg-slate-50 p-4 text-sm text-muted dark:bg-white/5">
+        <b className="text-slate-950">{cycles.filter((cycle) => ["Planifie", "En cours"].includes(cycle.status)).length}</b> cycles demandent un suivi operationnel.
+        Les statistiques qualite restent basees uniquement sur les cycles termines.
+      </div>
+    </div>
+  );
 }
 
 function DashboardExportPanel() {
@@ -392,7 +682,7 @@ function PlannedCycleStartForm({ cycleId, checklist }: { cycleId: string; checkl
       <input type="hidden" name="cycle_id" value={cycleId} />
       <div>
         <h3 className="font-bold text-slate-950">Demarrer le cycle planifie</h3>
-        <p className="mt-1 text-sm text-muted">Validez la checklist pour passer ce cycle en cours et vous l'assigner.</p>
+        <p className="mt-1 text-sm text-muted">Validez la checklist pour passer ce cycle en cours et vous l&apos;assigner.</p>
       </div>
       {checklistRows.map(([name, item, checked]) => (
         <label key={item} className="flex items-center gap-3 rounded-lg border border-slate-200 px-4 py-3 text-sm font-semibold">
@@ -478,19 +768,25 @@ export function CyclesTable({
   cycles: cycleRows = fallbackData.cycles,
   checklists = fallbackData.checklists,
   historyHref = "/engineer/history",
-  allowDelete = false
+  allowDelete = false,
+  cardClassName = "",
+  bodyClassName = ""
 }: {
   compact?: boolean;
   cycles?: CipDashboardData["cycles"];
   checklists?: CipDashboardData["checklists"];
   historyHref?: string;
   allowDelete?: boolean;
+  cardClassName?: string;
+  bodyClassName?: string;
 }) {
   return (
     <SectionCard
       title={compact ? "Derniers cycles" : "Tous les cycles CIP"}
       action={compact ? "Voir tout l'historique" : undefined}
       actionHref={compact ? historyHref : undefined}
+      className={cardClassName}
+      bodyClassName={bodyClassName}
     >
       <CycleDetailsTable cycles={cycleRows} checklists={checklists} allowDelete={allowDelete} />
     </SectionCard>
@@ -531,7 +827,6 @@ export function CyclesWorkspace({ profile, data = fallbackData }: { profile: Pro
           <button className="min-h-11 rounded-lg bg-formital-green px-4 font-bold text-white md:col-span-4">Enregistrer le cycle</button>
         </form>
       </SectionCard>
-      <CyclesTable cycles={data.cycles} checklists={data.checklists} />
     </div>
   );
 }
@@ -621,10 +916,29 @@ export function EquipmentsWorkspace({ data = fallbackData }: { data?: CipDashboa
   );
 }
 
-export function AlertsWorkspace({ data = fallbackData }: { data?: CipDashboardData }) {
+export function AlertsWorkspace({
+  data = fallbackData,
+  profile,
+  alertUpdated = false,
+  alertError
+}: {
+  data?: CipDashboardData;
+  profile?: Profile;
+  alertUpdated?: boolean;
+  alertError?: string;
+}) {
   const active = data.alerts.filter((alert) => alert.status === "Active").length;
   const acknowledged = data.alerts.filter((alert) => alert.status === "Acquittee").length;
   const resolved = data.alerts.filter((alert) => alert.status === "Resolue").length;
+  const canResolve = profile?.role === "engineer" || profile?.role === "admin";
+  const alertErrorMessage =
+    alertError === "alert-update"
+      ? "La mise a jour de l'alerte a echoue. Verifiez que les migrations alertes sont deployees."
+      : alertError === "alert-fields"
+        ? "Action alerte incomplete."
+        : alertError === "use-alert-form"
+          ? "Utilisez les boutons de la page pour traiter une alerte."
+          : alertError;
 
   return (
     <div className="grid gap-6">
@@ -634,6 +948,16 @@ export function AlertsWorkspace({ data = fallbackData }: { data?: CipDashboardDa
         <KpiCard label="Resolues" value={String(resolved)} trend="OK" tone="green" />
       </div>
       <SectionCard title="Centre des alertes" action="Exporter">
+        {alertUpdated ? (
+          <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-bold text-formital-green">
+            Alerte mise a jour avec succes.
+          </div>
+        ) : null}
+        {alertErrorMessage ? (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+            {alertErrorMessage}
+          </div>
+        ) : null}
         {data.alerts.length === 0 ? (
           <EmptyState>
             Aucune alerte CIP active ou historisee.
@@ -647,10 +971,36 @@ export function AlertsWorkspace({ data = fallbackData }: { data?: CipDashboardDa
                   <h3 className="mt-1 font-bold text-slate-950">{alert.title}</h3>
                   <p className="mt-1 text-sm text-muted">{alert.equipment}</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-2 md:items-end">
+                  <div className="flex items-center gap-2">
                   <StatusBadge value={alert.severity} />
                   <StatusBadge value={alert.status} />
-                  <button className="rounded-lg bg-formital-green px-4 py-2 text-sm font-bold text-white">Traiter</button>
+                  </div>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    {alert.status === "Active" ? (
+                      <form action="/api/cip/alerts/update" method="post">
+                        <input type="hidden" name="alert_id" value={alert.id} />
+                        <input type="hidden" name="intent" value="acknowledge" />
+                        <button type="submit" className="rounded-lg border border-formital-green px-4 py-2 text-sm font-bold text-formital-green transition hover:bg-formital-green hover:text-white">
+                          Acquitter
+                        </button>
+                      </form>
+                    ) : null}
+                    {canResolve && alert.status !== "Resolue" ? (
+                      <form action="/api/cip/alerts/update" method="post" className="flex flex-wrap gap-2">
+                        <input type="hidden" name="alert_id" value={alert.id} />
+                        <input type="hidden" name="intent" value="resolve" />
+                        <input
+                          name="resolution_comment"
+                          placeholder="Commentaire"
+                          className="min-h-10 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-formital-green"
+                        />
+                        <button type="submit" className="rounded-lg bg-formital-green px-4 py-2 text-sm font-bold text-white">
+                          Resoudre
+                        </button>
+                      </form>
+                    ) : null}
+                  </div>
                 </div>
               </article>
             ))}
@@ -839,24 +1189,135 @@ export function UsersWorkspace({ data = fallbackData }: { data?: CipDashboardDat
   );
 }
 
-export function SettingsWorkspace() {
+export function SettingsWorkspace({
+  data = fallbackData,
+  operatorCreated = false,
+  operatorError
+}: {
+  data?: CipDashboardData;
+  operatorCreated?: boolean;
+  operatorError?: string;
+}) {
+  const operators = data.users.filter(([, , role]) => role === "operator");
+
   return (
-    <div className="grid gap-6 xl:grid-cols-2">
-      <SectionCard title="Parametres CIP">
-        <div className="grid gap-4">
-          {["Temperature minimale", "Duree minimale", "Conductivite cible", "Seuil alerte critique"].map((label) => (
-            <label key={label} className="grid gap-2 text-sm font-semibold text-slate-700">
-              {label}
-              <input className="min-h-11 rounded-lg border border-slate-200 px-3 outline-none focus:border-formital-green" defaultValue="A configurer" />
-            </label>
-          ))}
-        </div>
-      </SectionCard>
-      <SectionCard title="Securite et audit">
-        <div className="grid gap-3 text-sm">
-          {["RLS active sur les tables sensibles", "Roles: operator, engineer, admin", "Creation comptes via service_role uniquement", "Exports journalises"].map((item) => (
-            <div key={item} className="rounded-lg border border-slate-200 px-4 py-3 font-semibold">{item}</div>
-          ))}
+    <div className="grid gap-6">
+      <div className="grid gap-6 xl:grid-cols-2">
+        <SectionCard title="Parametres CIP">
+          <div className="grid gap-4">
+            {["Temperature minimale", "Duree minimale", "Conductivite cible", "Seuil alerte critique"].map((label) => (
+              <label key={label} className="grid gap-2 text-sm font-semibold text-slate-700">
+                {label}
+                <input className="min-h-11 rounded-lg border border-slate-200 px-3 outline-none focus:border-formital-green" defaultValue="A configurer" />
+              </label>
+            ))}
+          </div>
+        </SectionCard>
+        <SectionCard title="Securite et audit">
+          <div className="grid gap-3 text-sm">
+            {["RLS active sur les tables sensibles", "Roles: operator, engineer, admin", "Creation comptes via service_role uniquement", "Exports journalises"].map((item) => (
+              <div key={item} className="rounded-lg border border-slate-200 px-4 py-3 font-semibold">{item}</div>
+            ))}
+          </div>
+        </SectionCard>
+      </div>
+
+      <SectionCard title="Comptes operateurs">
+        <div className="grid gap-6 xl:grid-cols-[1fr_0.95fr]">
+          <form action="/api/auth/operators" method="post" className="grid gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <div>
+              <p className="text-sm font-bold uppercase tracking-wide text-formital-green">Creation securisee</p>
+              <p className="mt-1 text-sm font-semibold text-slate-500">
+                Le compte est cree avec le role operateur et un profil actif dans la base de donnees.
+              </p>
+            </div>
+
+            {operatorCreated ? (
+              <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-bold text-formital-green">
+                Compte operateur cree avec succes.
+              </div>
+            ) : null}
+
+            {operatorError ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                {operatorError}
+              </div>
+            ) : null}
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="grid gap-2 text-sm font-semibold text-slate-700">
+                Nom complet
+                <input
+                  name="full_name"
+                  required
+                  minLength={2}
+                  placeholder="Operateur Formital"
+                  className="min-h-11 rounded-lg border border-slate-200 bg-white px-3 outline-none focus:border-formital-green"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-semibold text-slate-700">
+                Email
+                <input
+                  name="email"
+                  type="email"
+                  required
+                  placeholder="operateur@formital.com"
+                  className="min-h-11 rounded-lg border border-slate-200 bg-white px-3 outline-none focus:border-formital-green"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-semibold text-slate-700">
+                Mot de passe
+                <input
+                  name="password"
+                  type="password"
+                  required
+                  minLength={8}
+                  placeholder="Minimum 8 caracteres"
+                  className="min-h-11 rounded-lg border border-slate-200 bg-white px-3 outline-none focus:border-formital-green"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-semibold text-slate-700">
+                Badge RFID
+                <input
+                  name="rfid_badge_id"
+                  placeholder="Optionnel"
+                  className="min-h-11 rounded-lg border border-slate-200 bg-white px-3 outline-none focus:border-formital-green"
+                />
+              </label>
+            </div>
+
+            <button className="min-h-12 rounded-lg bg-formital-green px-4 py-3 text-sm font-bold text-white transition hover:bg-formital-green-dark" type="submit">
+              Creer le compte operateur
+            </button>
+          </form>
+
+          <div className="rounded-lg border border-slate-200 p-4">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-bold uppercase tracking-wide text-slate-500">Operateurs actifs</p>
+                <p className="text-3xl font-black text-slate-950">{operators.filter(([, , , status]) => status === "Actif").length}</p>
+              </div>
+              <StatusBadge value="Base de donnees" />
+            </div>
+            <div className="grid gap-3">
+              {operators.length === 0 ? (
+                <EmptyState>Aucun operateur visible pour cette session.</EmptyState>
+              ) : (
+                operators.map(([email, name, role, status]) => (
+                  <div key={email} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 px-4 py-3">
+                    <div>
+                      <p className="font-bold text-slate-950">{name}</p>
+                      <p className="text-sm font-semibold text-slate-500">{email}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <StatusBadge value={role} />
+                      <StatusBadge value={status} />
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       </SectionCard>
     </div>

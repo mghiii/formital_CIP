@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getRouteAuthContext, isPrivilegedProfile } from "@/lib/auth/api";
 
 export async function POST(request: NextRequest) {
-  const supabase = createServerSupabaseClient();
+  const context = await getRouteAuthContext();
   const formData = await request.formData();
   const processId = String(formData.get("process_id") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
@@ -13,6 +13,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.redirect(new URL(`${cleanReturnTo}?error=missing-equipment-fields`, request.url));
   }
 
+  if (!context) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  if (!isPrivilegedProfile(context.profile)) {
+    return NextResponse.redirect(new URL("/unauthorized", request.url));
+  }
+
+  const { supabase } = context;
   const { error } = await supabase.from("equipments").insert({
     process_id: processId,
     name,

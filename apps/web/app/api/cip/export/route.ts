@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { getCurrentProfile } from "@/lib/auth/session";
 import { getCipDashboardData } from "@/lib/cip/data";
 import type { CipCycle } from "@/lib/cip/mock-data";
 
@@ -388,7 +389,13 @@ function buildPdf(data: Awaited<ReturnType<typeof getCipDashboardData>>, options
 }
 
 export async function GET(request: NextRequest) {
-  const data = await getCipDashboardData();
+  const profile = await getCurrentProfile();
+
+  if (!profile?.is_active) {
+    return NextResponse.json({ message: "Votre session a expire." }, { status: 401 });
+  }
+
+  const data = await getCipDashboardData(profile);
   const options = exportOptions(request);
   const cycles = filterCycles(data.cycles, options);
   const slug = `${options.reportType}-${options.format}`.replace(/[^a-z0-9-]/gi, "-").toLowerCase();

@@ -5,7 +5,7 @@ import { getCipDashboardData } from "@/lib/cip/data";
 
 export default async function OperatorCyclesPage() {
   const profile = await requireProfile("/operator/cycles");
-  const data = await getCipDashboardData();
+  const data = await getCipDashboardData(profile);
 
   return (
     <AppShell profile={profile} activePath="/operator/cycles" title="Cycles CIP" subtitle="Demarrage, suivi et validation des cycles de nettoyage" alertCount={data.metrics.activeAlerts}>

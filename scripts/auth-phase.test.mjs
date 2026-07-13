@@ -43,6 +43,18 @@ describe("phase Authentification et roles", () => {
     assert.equal(frontend.includes("SERVICE_ROLE"), false);
   });
 
+  it("permet aux ingenieurs de creer des comptes operateurs cote serveur", () => {
+    const route = read("apps/web/app/api/auth/operators/route.ts");
+    const settings = read("apps/web/components/app/CipViews.tsx");
+
+    assert.match(route, /isPrivilegedProfile/);
+    assert.match(route, /createAdminSupabaseClient/);
+    assert.match(route, /role: "operator"/);
+    assert.match(route, /admin\.auth\.admin\.createUser/);
+    assert.match(settings, /Comptes operateurs/);
+    assert.match(settings, /Creer le compte operateur/);
+  });
+
   it("connecte le backend aux endpoints Supabase Auth et profiles", () => {
     const service = read("apps/api/app/services/supabase_auth.py");
     assert.equal(service.includes("/auth/v1/user"), true);

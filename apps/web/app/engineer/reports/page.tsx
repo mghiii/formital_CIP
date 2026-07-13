@@ -5,7 +5,7 @@ import { getCipDashboardData } from "@/lib/cip/data";
 
 export default async function EngineerReportsPage() {
   const profile = await requireProfile("/engineer/reports");
-  const data = await getCipDashboardData();
+  const data = await getCipDashboardData(profile);
 
   return (
     <AppShell profile={profile} activePath="/engineer/reports" title="Rapports et KPI" subtitle="Exports, indicateurs et dossiers qualite" alertCount={data.metrics.activeAlerts}>

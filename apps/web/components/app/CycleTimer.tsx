@@ -24,13 +24,14 @@ type CycleTimerProps = {
 
 export function CycleTimer({ cycle }: CycleTimerProps) {
   const [now, setNow] = useState<number | null>(null);
+  const cycleStatus = cycle?.status;
 
   useEffect(() => {
     setNow(Date.now());
-    if (!cycle || !["En cours", "Planifie"].includes(cycle.status)) return undefined;
+    if (!cycleStatus || !["En cours", "Planifie"].includes(cycleStatus)) return undefined;
     const interval = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(interval);
-  }, [cycle?.status]);
+  }, [cycleStatus]);
 
   const elapsedSeconds = useMemo(() => {
     if (!cycle) return 0;

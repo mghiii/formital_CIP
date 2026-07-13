@@ -5,7 +5,7 @@ import { getCipDashboardData } from "@/lib/cip/data";
 
 export default async function EngineerHistoryPage() {
   const profile = await requireProfile("/engineer/history");
-  const data = await getCipDashboardData();
+  const data = await getCipDashboardData(profile);
 
   return (
     <AppShell profile={profile} activePath="/engineer/history" title="Historique CIP" subtitle="Recherche et consultation des cycles termines" alertCount={data.metrics.activeAlerts}>

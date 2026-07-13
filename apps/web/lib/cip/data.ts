@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import type { Alert, AlertSeverity, CipCycle, CycleResult, CycleStatus, Equipment } from "@/lib/cip/mock-data";
+import type { Profile } from "@/types/auth";
 
 export type DashboardMetrics = {
   totalCycles: number;
@@ -53,6 +54,20 @@ type TableReadResult = {
   rows: DbRecord[];
   error?: string;
 };
+
+type SupabaseDataClient =
+  | ReturnType<typeof createServerSupabaseClient>
+  | NonNullable<ReturnType<typeof createAdminSupabaseClient>>;
+
+function createCipReadClient(profile?: Pick<Profile, "role">): SupabaseDataClient {
+  const sessionClient = createServerSupabaseClient();
+
+  if (profile?.role === "engineer" || profile?.role === "admin") {
+    return createAdminSupabaseClient() ?? sessionClient;
+  }
+
+  return sessionClient;
+}
 
 function text(value: unknown, fallback = "") {
   return typeof value === "string" && value.trim() ? value : fallback;
@@ -109,7 +124,7 @@ function mapCycleResult(result: unknown, status: unknown): CycleResult {
 
 function mapEquipmentStatus(status: unknown): Equipment["status"] {
   const value = text(status);
-  if (value === "in_cleaning") return "En nettoyage";
+  if (value === "cleaning" || value === "in_cleaning") return "En nettoyage";
   if (value === "cleaned") return "Nettoye";
   if (value === "not_cleaned") return "Non nettoye";
   if (value === "out_of_service") return "Hors service";
@@ -207,8 +222,13 @@ function lastTenDaySums(cycles: CipCycle[], rowsById: Map<string, DbRecord>, fie
   return days.map((day) => sums.get(day) ?? 0);
 }
 
-async function readTable(table: string, select = "*", order?: { column: string; ascending?: boolean }, limit = 200): Promise<TableReadResult> {
-  const supabase = createAdminSupabaseClient() ?? createServerSupabaseClient();
+async function readTable(
+  supabase: SupabaseDataClient,
+  table: string,
+  select = "*",
+  order?: { column: string; ascending?: boolean },
+  limit = 200
+): Promise<TableReadResult> {
   let query = supabase.from(table).select(select).limit(limit);
   if (order) query = query.order(order.column, { ascending: order.ascending ?? false });
   const { data, error } = await query;
@@ -219,16 +239,17 @@ async function readTable(table: string, select = "*", order?: { column: string; 
   };
 }
 
-export async function getCipDashboardData(): Promise<CipDashboardData> {
+export async function getCipDashboardData(profile?: Pick<Profile, "role">): Promise<CipDashboardData> {
   try {
+    const supabase = createCipReadClient(profile);
     const [cycleResult, equipmentResult, processResult, profileResult, alertResult, checklistResult, instructionResult] = await Promise.all([
-      readTable("cip_cycles", "*", { column: "started_at", ascending: false }),
-      readTable("equipments", "*", { column: "created_at", ascending: true }),
-      readTable("processes", "*", { column: "created_at", ascending: true }),
-      readTable("profiles", "*", { column: "created_at", ascending: true }),
-      readTable("cip_alerts", "*", { column: "created_at", ascending: false }),
-      readTable("cip_checklists", "*", { column: "created_at", ascending: false }),
-      readTable("cip_instructions", "*", { column: "created_at", ascending: true })
+      readTable(supabase, "cip_cycles", "*", { column: "started_at", ascending: false }),
+      readTable(supabase, "equipments", "*", { column: "created_at", ascending: true }),
+      readTable(supabase, "processes", "*", { column: "created_at", ascending: true }),
+      readTable(supabase, "profiles", "*", { column: "created_at", ascending: true }),
+      readTable(supabase, "cip_alerts", "*", { column: "created_at", ascending: false }),
+      readTable(supabase, "cip_checklists", "*", { column: "created_at", ascending: false }),
+      readTable(supabase, "cip_instructions", "*", { column: "created_at", ascending: true })
     ]);
 
     const readErrors = [cycleResult, equipmentResult, processResult, profileResult, alertResult, checklistResult, instructionResult]

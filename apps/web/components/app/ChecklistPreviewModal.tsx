@@ -32,7 +32,7 @@ export function ChecklistPreviewModal() {
                 <h2 id="checklist-preview-title" className="mt-1 text-2xl font-bold text-slate-950 dark:text-white">
                   Controles avant demarrage
                 </h2>
-                <p className="mt-1 text-sm text-muted">Ces points devront etre valides par l'operateur avant le lancement du cycle.</p>
+                <p className="mt-1 text-sm text-muted">Ces points devront etre valides par l&apos;operateur avant le lancement du cycle.</p>
               </div>
               <button
                 type="button"

@@ -71,9 +71,62 @@ export function CycleDetailsTable({ cycles, checklists = {}, allowDelete = false
 
   return (
     <>
-      <div className="overflow-x-auto">
+      <div className="grid max-h-[34rem] min-h-0 flex-1 content-start gap-3 overflow-y-auto pr-1 md:hidden">
+        {cycles.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-5 text-center text-sm font-semibold text-slate-500 dark:border-[#315941] dark:bg-[#0b1d13]">
+            Aucun cycle CIP enregistre dans la base de donnees.
+          </div>
+        ) : (
+          cycles.map((cycle) => (
+            <article key={cycle.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-[#315941] dark:bg-[#0d1b13]">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-muted">{cycle.date}</p>
+                  <h3 className="mt-1 text-lg font-bold text-slate-950 dark:text-white">{cycle.equipment}</h3>
+                  <p className="mt-1 text-sm text-muted">{cycle.process}</p>
+                </div>
+                <StatusBadge value={cycle.status} />
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                <DetailTile label="Duree" value={formatCycleDuration(cycle.duration)} />
+                <DetailTile label="Resultat" value={cycle.result} />
+                <DetailTile label="Operateur" value={cycle.operator} />
+                <DetailTile label="Eau" value={valueOrDash(cycle.water, " L")} />
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedCycle(cycle)}
+                  className="min-h-10 flex-1 rounded-lg bg-formital-green px-4 text-sm font-bold text-white"
+                >
+                  Details
+                </button>
+                {allowDelete ? (
+                  <form
+                    action="/api/cip/cycles/delete"
+                    method="post"
+                    onSubmit={(event) => {
+                      if (!window.confirm(`Supprimer le cycle ${cycle.equipment} du ${cycle.date} ? Cette action est definitive.`)) {
+                        event.preventDefault();
+                      }
+                    }}
+                    className="flex-1"
+                  >
+                    <input type="hidden" name="cycle_id" value={cycle.id} />
+                    <button type="submit" className="min-h-10 w-full rounded-lg border border-red-200 bg-red-50 px-4 text-sm font-bold text-red-700 dark:border-red-400/40 dark:bg-red-500/10 dark:text-red-200">
+                      Supprimer
+                    </button>
+                  </form>
+                ) : null}
+              </div>
+            </article>
+          ))
+        )}
+      </div>
+
+      <div className="hidden max-h-[34rem] min-h-0 flex-1 overflow-auto md:block">
         <table className="w-full min-w-[760px] text-left text-sm">
-          <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="sticky top-0 z-10 border-b border-slate-200 bg-white text-xs uppercase tracking-wide text-slate-500 dark:border-[#315941] dark:bg-[#0d1b13]">
             <tr>
               <th className="py-3 pr-4">Date/Heure</th>
               <th className="py-3 pr-4">Equipement</th>
@@ -85,7 +138,7 @@ export function CycleDetailsTable({ cycles, checklists = {}, allowDelete = false
               {allowDelete ? <th className="py-3 pr-4 text-right">Action</th> : null}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-100 dark:divide-[#315941]">
             {cycles.length === 0 ? (
               <tr>
                 <td colSpan={columnCount} className="py-8 text-center font-semibold text-slate-500">
