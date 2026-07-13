@@ -21,6 +21,46 @@ describe("coherence cycles CIP", () => {
     assert.match(route, /getCipDashboardData\(profile\)/);
   });
 
+  it("centralise les calculs des rapports CIP", () => {
+    const route = read("apps/web/app/api/cip/export/route.ts");
+    const reporting = read("apps/web/lib/cip/reporting.ts");
+    assert.match(route, /buildReportAnalytics/);
+    assert.match(route, /filterReportCycles/);
+    assert.doesNotMatch(route, /function cycleMetrics/);
+    assert.doesNotMatch(route, /function dailyCounts/);
+    assert.match(reporting, /export function buildReportAnalytics/);
+    assert.match(reporting, /workshopStats/);
+    assert.match(reporting, /programStats/);
+    assert.match(reporting, /equipmentConsumption/);
+  });
+
+  it("documente les regles d'analyse sans seuil metier invente", () => {
+    const reporting = read("apps/web/lib/cip/reporting.ts");
+    const route = read("apps/web/app/api/cip/export/route.ts");
+    assert.match(reporting, /REPORT_ANALYSIS_RULES/);
+    assert.match(reporting, /threshold: "A valider"/);
+    assert.match(reporting, /enabled: false/);
+    assert.match(route, /seuils metier a valider/);
+    assert.match(route, /Formital CIP/);
+  });
+
+  it("genere les graphiques PDF avec une grille paysage stable", () => {
+    const route = read("apps/web/app/api/cip/export/route.ts");
+    assert.match(route, /const PDF_LAYOUT/);
+    assert.match(route, /pageWidth:\s*842/);
+    assert.match(route, /pageHeight:\s*595/);
+    assert.match(route, /MediaBox \[0 0 \$\{PDF_LAYOUT\.pageWidth\} \$\{PDF_LAYOUT\.pageHeight\}\]/);
+    assert.match(route, /function ReportChartCard/);
+    assert.match(route, /function pdfHorizontalBars/);
+    assert.match(route, /function pdfVerticalHistogram/);
+    assert.match(route, /labelWidthRatio:\s*0\.35/);
+    assert.match(route, /valueWidthRatio:\s*0\.12/);
+    assert.match(route, /row\.value === 0 \? 0/);
+    assert.match(route, /addConsumptionPage/);
+    assert.doesNotMatch(route, /MediaBox \[0 0 595 842\]/);
+    assert.doesNotMatch(route, /function pdfBar/);
+  });
+
   it("controle l'acces avant de modifier une checklist ou terminer un cycle", () => {
     const checklist = read("apps/web/app/api/cip/checklist/route.ts");
     const complete = read("apps/web/app/api/cip/cycles/complete/route.ts");
