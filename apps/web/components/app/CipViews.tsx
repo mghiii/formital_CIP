@@ -44,6 +44,10 @@ function StatusBadge({ value }: { value: string }) {
   return <span className={`inline-flex shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-xs font-bold ${tone}`}>{value}</span>;
 }
 
+function safeDomId(value: string) {
+  return value.replace(/[^a-zA-Z0-9_-]/g, "-");
+}
+
 function SectionCard({
   title,
   action,
@@ -1024,7 +1028,7 @@ export function CyclesWorkspace({
   const inProgress = data.cycles.filter((cycle) => cycle.status === "En cours").length;
   const planned = data.cycles.filter((cycle) => cycle.status === "Planifie").length;
   const nonCompliant = data.cycles.filter((cycle) => cycle.result === "Non conforme").length;
-  const operators = data.users.filter((user) => user[3] === "operator" && user[4] === "Actif");
+  const operators = data.users.filter((user) => user.role === "operator" && user.status === "Actif");
 
   return (
     <div className="grid gap-6">
@@ -1064,9 +1068,9 @@ export function CyclesWorkspace({
             Operateur assigne
             <select name="operator_id" className="min-h-11 rounded-lg border border-slate-200 px-3 outline-none focus:border-formital-green">
               <option value="">Non assigne</option>
-              {operators.map(([id, , name]) => (
-                <option key={id} value={id}>
-                  {name}
+              {operators.map((operator) => (
+                <option key={operator.id} value={operator.id}>
+                  {operator.name}
                 </option>
               ))}
             </select>
@@ -1427,15 +1431,15 @@ export function UsersWorkspace({ data = fallbackData }: { data?: CipDashboardDat
           {data.users.length === 0 ? (
             <EmptyState>Aucun profil visible dans la base de donnees pour cette session.</EmptyState>
           ) : (
-            data.users.map(([id, email, name, role, status]) => (
-              <article key={id || email} className="min-w-0 rounded-lg border border-slate-200 p-4 dark:border-[#315941]">
+            data.users.map((user) => (
+              <article key={user.id || user.email} className="min-w-0 rounded-lg border border-slate-200 p-4 dark:border-[#315941]">
                 <div className="min-w-0">
-                  <p className="truncate font-bold text-slate-950" title={name}>{name}</p>
-                  <p className="mt-1 truncate text-sm font-semibold text-slate-500" title={email}>{email}</p>
+                  <p className="truncate font-bold text-slate-950" title={user.name}>{user.name}</p>
+                  <p className="mt-1 truncate text-sm font-semibold text-slate-500" title={user.email}>{user.email}</p>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <StatusBadge value={role} />
-                  <StatusBadge value={status} />
+                  <StatusBadge value={user.role} />
+                  <StatusBadge value={user.status} />
                 </div>
               </article>
             ))
@@ -1454,12 +1458,12 @@ export function UsersWorkspace({ data = fallbackData }: { data?: CipDashboardDat
                   </td>
                 </tr>
               ) : (
-                data.users.map(([id, email, name, role, status]) => (
-                  <tr key={id || email}>
-                    <td className="max-w-[18rem] truncate py-3 pr-4 font-semibold" title={email}>{email}</td>
-                    <td className="max-w-[16rem] truncate py-3 pr-4" title={name}>{name}</td>
-                    <td className="py-3 pr-4"><StatusBadge value={role} /></td>
-                    <td className="py-3 pr-4"><StatusBadge value={status} /></td>
+                data.users.map((user) => (
+                  <tr key={user.id || user.email}>
+                    <td className="max-w-[18rem] truncate py-3 pr-4 font-semibold" title={user.email}>{user.email}</td>
+                    <td className="max-w-[16rem] truncate py-3 pr-4" title={user.name}>{user.name}</td>
+                    <td className="py-3 pr-4"><StatusBadge value={user.role} /></td>
+                    <td className="py-3 pr-4"><StatusBadge value={user.status} /></td>
                   </tr>
                 ))
               )}
@@ -1480,7 +1484,7 @@ export function SettingsWorkspace({
   operatorCreated?: boolean;
   operatorError?: string;
 }) {
-  const operators = data.users.filter(([, , , role]) => role === "operator");
+  const operators = data.users.filter((user) => user.role === "operator");
 
   return (
     <div className="grid gap-6">
@@ -1497,7 +1501,7 @@ export function SettingsWorkspace({
         </SectionCard>
         <SectionCard title="Securite et audit">
           <div className="grid gap-3 text-sm">
-            {["RLS active sur les tables sensibles", "Roles: operator, engineer, admin", "Creation comptes via service_role uniquement", "Exports journalises"].map((item) => (
+            {["RLS active sur les tables sensibles", "Roles: operator, engineer, admin", "Creation comptes via route serveur securisee", "Exports journalises"].map((item) => (
               <div key={item} className="rounded-lg border border-slate-200 px-4 py-3 font-semibold">{item}</div>
             ))}
           </div>
@@ -1566,6 +1570,38 @@ export function SettingsWorkspace({
                   className="min-h-11 rounded-lg border border-slate-200 bg-white px-3 outline-none focus:border-formital-green"
                 />
               </label>
+              <label className="grid gap-2 text-sm font-semibold text-slate-700">
+                Telephone
+                <input
+                  name="phone"
+                  placeholder="Optionnel"
+                  className="min-h-11 rounded-lg border border-slate-200 bg-white px-3 outline-none focus:border-formital-green"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-semibold text-slate-700">
+                Matricule
+                <input
+                  name="matricule"
+                  placeholder="Optionnel"
+                  className="min-h-11 rounded-lg border border-slate-200 bg-white px-3 outline-none focus:border-formital-green"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-semibold text-slate-700">
+                Departement
+                <input
+                  name="department"
+                  placeholder="Optionnel"
+                  className="min-h-11 rounded-lg border border-slate-200 bg-white px-3 outline-none focus:border-formital-green"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-semibold text-slate-700">
+                Atelier
+                <input
+                  name="workshop"
+                  placeholder="Optionnel"
+                  className="min-h-11 rounded-lg border border-slate-200 bg-white px-3 outline-none focus:border-formital-green"
+                />
+              </label>
             </div>
 
             <button className="min-h-12 rounded-lg bg-formital-green px-4 py-3 text-sm font-bold text-white transition hover:bg-formital-green-dark" type="submit">
@@ -1577,7 +1613,7 @@ export function SettingsWorkspace({
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-bold uppercase tracking-wide text-slate-500">Operateurs actifs</p>
-                <p className="text-3xl font-black text-slate-950">{operators.filter(([, , , , status]) => status === "Actif").length}</p>
+                <p className="text-3xl font-black text-slate-950">{operators.filter((user) => user.status === "Actif").length}</p>
               </div>
               <StatusBadge value="Base de donnees" />
             </div>
@@ -1585,18 +1621,129 @@ export function SettingsWorkspace({
               {operators.length === 0 ? (
                 <EmptyState>Aucun operateur visible pour cette session.</EmptyState>
               ) : (
-                operators.map(([id, email, name, role, status]) => (
-                  <div key={id || email} className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 px-4 py-3 dark:border-[#315941]">
-                    <div className="min-w-0">
-                      <p className="truncate font-bold text-slate-950" title={name}>{name}</p>
-                      <p className="truncate text-sm font-semibold text-slate-500" title={email}>{email}</p>
+                operators.map((user) => {
+                  const userKey = safeDomId(user.id || user.email || user.name);
+                  const editModalId = `edit-operator-${userKey}`;
+                  const deleteModalId = `delete-operator-${userKey}`;
+
+                  return (
+                  <div key={user.id || user.email} className="grid min-w-0 gap-3 rounded-lg border border-slate-200 px-4 py-3 dark:border-[#315941]">
+                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-bold text-slate-950 dark:text-white" title={user.name}>{user.name}</p>
+                        <p className="truncate text-sm font-semibold text-slate-500" title={user.email}>{user.email}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <StatusBadge value={user.role} />
+                        <StatusBadge value={user.status} />
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <StatusBadge value={role} />
-                      <StatusBadge value={status} />
+                    <div className="grid gap-2 text-xs font-bold text-slate-500 sm:grid-cols-2 xl:grid-cols-3">
+                      <span className="rounded-lg bg-slate-50 px-3 py-2 dark:bg-[#10251a]">Telephone: {user.phone || "-"}</span>
+                      <span className="rounded-lg bg-slate-50 px-3 py-2 dark:bg-[#10251a]">Matricule: {user.matricule || "-"}</span>
+                      <span className="rounded-lg bg-slate-50 px-3 py-2 dark:bg-[#10251a]">Badge RFID: {user.rfidBadgeId || "-"}</span>
+                      <span className="rounded-lg bg-slate-50 px-3 py-2 dark:bg-[#10251a]">Departement: {user.department || "-"}</span>
+                      <span className="rounded-lg bg-slate-50 px-3 py-2 dark:bg-[#10251a]">Atelier: {user.workshop || "-"}</span>
+                      <span className="rounded-lg bg-slate-50 px-3 py-2 dark:bg-[#10251a]">Creation: {user.createdAt ? user.createdAt.slice(0, 10) : "-"}</span>
                     </div>
+                    {user.id ? (
+                      <div className="flex flex-wrap gap-2">
+                        <a href={`#${editModalId}`} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-formital-green hover:text-formital-green dark:border-[#315941] dark:text-slate-100">
+                          Modifier
+                        </a>
+                        <a href={`#${deleteModalId}`} className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 transition hover:bg-red-100 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200">
+                          Supprimer
+                        </a>
+
+                        <div id={editModalId} className="invisible fixed inset-0 z-50 grid pointer-events-none place-items-center bg-slate-950/45 px-3 py-6 opacity-0 backdrop-blur-sm transition target:visible target:pointer-events-auto target:opacity-100">
+                          <a href="#" className="absolute inset-0" aria-label="Fermer la popup" />
+                          <section className="relative max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-[#315941] dark:bg-[#07170f] sm:p-6">
+                            <div className="flex items-start justify-between gap-4">
+                              <div>
+                                <p className="text-xs font-black uppercase tracking-wide text-formital-green">Operateur</p>
+                                <h3 className="mt-1 text-2xl font-black text-slate-950 dark:text-white">Modifier {user.name}</h3>
+                                <p className="mt-1 text-sm font-semibold text-slate-500 dark:text-slate-300">{user.email}</p>
+                              </div>
+                              <a href="#" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-slate-200 text-xl font-bold text-slate-500 transition hover:border-formital-green hover:text-formital-green dark:border-[#315941]" aria-label="Fermer la popup">
+                                X
+                              </a>
+                            </div>
+                            <form action={`/api/admin/users/${user.id}`} method="post" className="mt-5 grid gap-4">
+                              <input type="hidden" name="action" value="update" />
+                              <input type="hidden" name="role" value="operator" />
+                              <div className="grid gap-4 md:grid-cols-2">
+                                <label className="grid gap-2 text-sm font-bold text-slate-700 dark:text-slate-200">
+                                  Nom complet
+                                  <input name="full_name" defaultValue={user.name} required minLength={2} className="min-h-11 rounded-lg border border-slate-200 px-3 dark:border-[#315941] dark:bg-[#0b1f14]" />
+                                </label>
+                                <label className="grid gap-2 text-sm font-bold text-slate-700 dark:text-slate-200">
+                                  Email
+                                  <input name="email" type="email" defaultValue={user.email} required className="min-h-11 rounded-lg border border-slate-200 px-3 dark:border-[#315941] dark:bg-[#0b1f14]" />
+                                </label>
+                                <label className="grid gap-2 text-sm font-bold text-slate-700 dark:text-slate-200">
+                                  Telephone
+                                  <input name="phone" defaultValue={user.phone} placeholder="Optionnel" className="min-h-11 rounded-lg border border-slate-200 px-3 dark:border-[#315941] dark:bg-[#0b1f14]" />
+                                </label>
+                                <label className="grid gap-2 text-sm font-bold text-slate-700 dark:text-slate-200">
+                                  Matricule
+                                  <input name="matricule" defaultValue={user.matricule} placeholder="Optionnel" className="min-h-11 rounded-lg border border-slate-200 px-3 dark:border-[#315941] dark:bg-[#0b1f14]" />
+                                </label>
+                                <label className="grid gap-2 text-sm font-bold text-slate-700 dark:text-slate-200">
+                                  Badge RFID
+                                  <input name="rfid_badge_id" defaultValue={user.rfidBadgeId} placeholder="Optionnel" className="min-h-11 rounded-lg border border-slate-200 px-3 dark:border-[#315941] dark:bg-[#0b1f14]" />
+                                </label>
+                                <label className="grid gap-2 text-sm font-bold text-slate-700 dark:text-slate-200">
+                                  Departement
+                                  <input name="department" defaultValue={user.department} placeholder="Optionnel" className="min-h-11 rounded-lg border border-slate-200 px-3 dark:border-[#315941] dark:bg-[#0b1f14]" />
+                                </label>
+                                <label className="grid gap-2 text-sm font-bold text-slate-700 dark:text-slate-200">
+                                  Atelier
+                                  <input name="workshop" defaultValue={user.workshop} placeholder="Optionnel" className="min-h-11 rounded-lg border border-slate-200 px-3 dark:border-[#315941] dark:bg-[#0b1f14]" />
+                                </label>
+                                <label className="grid gap-2 text-sm font-bold text-slate-700 dark:text-slate-200">
+                                  Etat
+                                  <select name="status" defaultValue={user.status === "Actif" ? "active" : "inactive"} className="min-h-11 rounded-lg border border-slate-200 px-3 dark:border-[#315941] dark:bg-[#0b1f14]">
+                                    <option value="active">Actif</option>
+                                    <option value="inactive">Inactif</option>
+                                  </select>
+                                </label>
+                              </div>
+                              <button className="min-h-11 rounded-lg bg-formital-green px-4 text-sm font-bold text-white">Enregistrer les modifications</button>
+                            </form>
+                          </section>
+                        </div>
+
+                        <div id={deleteModalId} className="invisible fixed inset-0 z-50 grid pointer-events-none place-items-center bg-slate-950/45 px-3 py-6 opacity-0 backdrop-blur-sm transition target:visible target:pointer-events-auto target:opacity-100">
+                          <a href="#" className="absolute inset-0" aria-label="Fermer la popup" />
+                          <section className="relative w-full max-w-xl rounded-2xl border border-red-200 bg-white p-5 shadow-2xl dark:border-red-900/60 dark:bg-[#07170f] sm:p-6">
+                            <div className="flex items-start justify-between gap-4">
+                              <div>
+                                <p className="text-xs font-black uppercase tracking-wide text-red-700 dark:text-red-200">Suppression</p>
+                                <h3 className="mt-1 text-2xl font-black text-slate-950 dark:text-white">Supprimer ou archiver</h3>
+                                <p className="mt-1 text-sm font-semibold text-slate-500 dark:text-slate-300">{user.name} - {user.email}</p>
+                              </div>
+                              <a href="#" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-slate-200 text-xl font-bold text-slate-500 transition hover:border-red-400 hover:text-red-700 dark:border-[#315941]" aria-label="Fermer la popup">
+                                X
+                              </a>
+                            </div>
+                            <form action={`/api/admin/users/${user.id}`} method="post" className="mt-5 grid gap-4">
+                              <input type="hidden" name="action" value="delete" />
+                              <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-800 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200">
+                                Si ce compte possede des cycles CIP, il sera archive et desactive. Sinon il sera supprime definitivement.
+                              </p>
+                              <label className="grid gap-2 text-sm font-bold text-slate-700 dark:text-slate-200">
+                                Tapez SUPPRIMER pour confirmer
+                                <input name="confirmation" placeholder="SUPPRIMER" className="min-h-11 rounded-lg border border-red-200 px-3 dark:border-red-900/60 dark:bg-[#0b1f14]" />
+                              </label>
+                              <button className="min-h-11 rounded-lg bg-red-700 px-4 text-sm font-bold text-white">Confirmer</button>
+                            </form>
+                          </section>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>

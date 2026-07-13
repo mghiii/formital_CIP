@@ -2,8 +2,16 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Digital CIP",
-  description: "Authentification et roles pour la plateforme Digital CIP"
+  title: {
+    default: "Formital CIP",
+    template: "%s | Formital CIP"
+  },
+  description: "Suivi et automatisation des operations CIP Formital",
+  icons: {
+    icon: "/formital-logo.png",
+    shortcut: "/formital-logo.png",
+    apple: "/formital-logo.png"
+  }
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

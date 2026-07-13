@@ -34,15 +34,16 @@ const navByRole: Record<AppRole, NavItem[]> = {
     { label: "Equipements", mobileLabel: "Machines", href: "/engineer/equipments", icon: "equipment" },
     { label: "Indicateurs KPI", mobileLabel: "KPI", href: "/engineer/reports", icon: "kpi" },
     { label: "Alertes", href: "/engineer/alerts", icon: "alert", badge: "alerts" },
+    { label: "Administration", mobileLabel: "Admin", href: "/admin/users", icon: "users" },
     { label: "Parametres", href: "/engineer/settings", icon: "settings" }
   ],
   admin: [
     { label: "Tableau de bord", mobileLabel: "Dashboard", href: "/admin/dashboard", icon: "home" },
-    { label: "Cycles CIP", href: "/engineer/cycles", icon: "cycle" },
-    { label: "Equipements", mobileLabel: "Machines", href: "/engineer/equipments", icon: "equipment" },
-    { label: "Alertes", href: "/engineer/alerts", icon: "alert", badge: "alerts" },
-    { label: "Rapports", href: "/engineer/reports", icon: "report" },
+    { label: "Equipements", mobileLabel: "Machines", href: "/admin/equipments", icon: "equipment" },
+    { label: "Alertes", href: "/admin/alerts", icon: "alert", badge: "alerts" },
+    { label: "Rapports", href: "/admin/reports", icon: "report" },
     { label: "Utilisateurs", href: "/admin/users", icon: "users" },
+    { label: "Audit", href: "/admin/audit", icon: "report" },
     { label: "Parametres", href: "/admin/settings", icon: "settings" }
   ]
 };

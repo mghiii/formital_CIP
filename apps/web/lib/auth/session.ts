@@ -35,7 +35,7 @@ export async function requireProfile(pathname: string): Promise<Profile> {
     redirect(`/login?next=${encodeURIComponent(pathname)}`);
   }
 
-  if (!profile.is_active) {
+  if (profile.is_active === false || profile.status === "inactive") {
     redirect("/inactive");
   }
 
@@ -53,7 +53,7 @@ export async function requireProfile(pathname: string): Promise<Profile> {
 export async function redirectAuthenticatedUser() {
   const profile = await getCurrentProfile();
 
-  if (profile?.is_active) {
+  if (profile?.is_active && profile.status !== "inactive") {
     redirect(isAppRole(profile.role) ? getDashboardPath(profile.role) : "/unauthorized");
   }
 }

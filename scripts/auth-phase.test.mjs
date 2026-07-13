@@ -18,7 +18,9 @@ describe("phase Authentification et roles", () => {
   it("encode les autorisations attendues par role", () => {
     const roles = read("apps/web/lib/auth/roles.ts");
     assert.equal(roles.includes('pathname.startsWith("/admin")'), true);
-    assert.equal(roles.includes('return role === "admin";'), true);
+    assert.equal(roles.includes('role === "admin"'), true);
+    assert.equal(roles.includes('pathname === "/admin/users"'), true);
+    assert.equal(roles.includes('pathname.startsWith("/admin/users/")'), true);
     assert.equal(roles.includes('pathname.startsWith("/engineer")'), true);
     assert.equal(roles.includes('return role === "engineer";'), true);
     assert.equal(roles.includes('pathname.startsWith("/operator")'), true);
@@ -59,12 +61,17 @@ describe("phase Authentification et roles", () => {
     const bootstrap = read("apps/web/app/api/auth/profile-bootstrap/route.ts");
     const login = read("apps/web/components/auth/LoginForm.tsx");
     const session = read("apps/web/lib/auth/session.ts");
+    const api = read("apps/web/lib/auth/api.ts");
+    const roles = read("apps/web/lib/auth/roles.ts");
 
     assert.match(bootstrap, /return null/);
     assert.equal(bootstrap.includes('return "operator";\n}'), false);
     assert.match(bootstrap, /Profil manquant/);
     assert.match(login, /router\.replace\("\/unauthorized"\)/);
     assert.match(session, /redirect\("\/unauthorized"\)/);
+    assert.match(session, /profile\.is_active === false \|\| profile\.status === "inactive"/);
+    assert.match(api, /profile\.is_active === false \|\| profile\.status === "inactive"/);
+    assert.match(roles, /profile\.is_active === false \|\| profile\.status === "inactive"/);
   });
 
   it("n'expose pas la service role dans le frontend", () => {
@@ -88,6 +95,10 @@ describe("phase Authentification et roles", () => {
     assert.match(route, /admin\.auth\.admin\.createUser/);
     assert.match(settings, /Comptes operateurs/);
     assert.match(settings, /Creer le compte operateur/);
+    assert.match(settings, /edit-operator-/);
+    assert.match(settings, /delete-operator-/);
+    assert.match(settings, /Supprimer ou archiver/);
+    assert.match(settings, /Enregistrer les modifications/);
   });
 
   it("connecte le backend aux endpoints Supabase Auth et profiles", () => {

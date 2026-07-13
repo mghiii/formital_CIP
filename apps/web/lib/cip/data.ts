@@ -20,6 +20,22 @@ export type ChecklistState = {
   all_validated: boolean;
 };
 
+export type CipUser = {
+  id: string;
+  email: string;
+  name: string;
+  role: "operator" | "engineer" | "admin";
+  status: "Actif" | "Inactif" | "En attente";
+  phone: string;
+  matricule: string;
+  department: string;
+  workshop: string;
+  rfidBadgeId: string;
+  avatarUrl: string;
+  createdAt: string;
+  lastSignInAt: string;
+};
+
 export type CipDashboardData = {
   cycles: CipCycle[];
   equipments: Equipment[];
@@ -42,7 +58,7 @@ export type CipDashboardData = {
   dailyCycles: number[];
   waterConsumption: number[];
   detergentConsumption: number[];
-  users: Array<[string, string, string, string, string]>;
+  users: CipUser[];
   checklists: Record<string, ChecklistState>;
   source: "supabase" | "unavailable";
   notice?: string;
@@ -358,13 +374,27 @@ export async function getCipDashboardData(profile?: Pick<Profile, "role">): Prom
       };
     });
 
-    const users: CipDashboardData["users"] = profileRows.map((profile) => [
-      text(profile.id),
-      text(profile.email, "email non renseigne"),
-      text(profile.full_name, "Utilisateur Formital"),
-      text(profile.role, "operator"),
-      profile.is_active === false ? "Inactif" : "Actif"
-    ]);
+    const users: CipDashboardData["users"] = profileRows.map((profile) => {
+      const rawRole = text(profile.role, "operator");
+      const rawStatus = text(profile.status);
+      const isActive = profile.is_active !== false && rawStatus !== "inactive";
+
+      return {
+        id: text(profile.id),
+        email: text(profile.email, "email non renseigne"),
+        name: text(profile.full_name, text(profile.username, "Utilisateur Formital")),
+        role: rawRole === "admin" || rawRole === "engineer" ? rawRole : "operator",
+        status: rawStatus === "pending" ? "En attente" : isActive ? "Actif" : "Inactif",
+        phone: text(profile.phone),
+        matricule: text(profile.matricule),
+        department: text(profile.department),
+        workshop: text(profile.workshop),
+        rfidBadgeId: text(profile.rfid_badge_id, text(profile.badge_rfid)),
+        avatarUrl: text(profile.avatar_url),
+        createdAt: text(profile.created_at),
+        lastSignInAt: text(profile.last_sign_in_at)
+      };
+    });
 
     const instructions: CipDashboardData["instructions"] = instructionRows
       .filter((instruction) => instruction.is_active !== false)

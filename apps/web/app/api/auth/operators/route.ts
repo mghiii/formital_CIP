@@ -1,10 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getRouteAuthContext, isPrivilegedProfile } from "@/lib/auth/api";
-import { toAppUrl } from "@/lib/auth/redirects";
+import { getSafeReturnPath, toAppUrl } from "@/lib/auth/redirects";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
 function redirectToSettings(request: NextRequest, params: Record<string, string>) {
-  const url = toAppUrl(request, "/engineer/settings");
+  const url = toAppUrl(request, getSafeReturnPath(request, "/engineer/settings"));
 
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value);
@@ -20,6 +20,20 @@ function readFormText(formData: FormData, key: string) {
 
 function schemaFallbackAllowed(message?: string) {
   return /schema cache|column|Could not find/i.test(message ?? "");
+}
+
+function formatOperatorError(message: string | undefined, fallback: string) {
+  const clean = message ?? "";
+  if (/already registered|already been registered|already exists|duplicate key/i.test(clean)) {
+    return "Creation impossible: email, matricule ou badge deja utilise.";
+  }
+  if (/password/i.test(clean)) {
+    return "Creation impossible: le mot de passe ne respecte pas les regles de securite.";
+  }
+  if (/schema cache|column|Could not find/i.test(clean)) {
+    return "Creation impossible: le profil n'est pas compatible avec le schema actuel de la base.";
+  }
+  return clean || fallback;
 }
 
 export async function POST(request: NextRequest) {
@@ -43,6 +57,10 @@ export async function POST(request: NextRequest) {
   const email = readFormText(formData, "email").toLowerCase();
   const password = readFormText(formData, "password");
   const rfidBadgeId = readFormText(formData, "rfid_badge_id");
+  const phone = readFormText(formData, "phone");
+  const matricule = readFormText(formData, "matricule");
+  const department = readFormText(formData, "department");
+  const workshop = readFormText(formData, "workshop");
 
   if (fullName.length < 2) {
     return redirectToSettings(request, { operator_error: "Le nom complet est obligatoire." });
@@ -66,13 +84,17 @@ export async function POST(request: NextRequest) {
     user_metadata: {
       full_name: fullName,
       role: "operator",
-      ...(rfidBadgeId ? { rfid_badge_id: rfidBadgeId } : {})
+      ...(rfidBadgeId ? { rfid_badge_id: rfidBadgeId } : {}),
+      ...(phone ? { phone } : {}),
+      ...(matricule ? { matricule } : {}),
+      ...(department ? { department } : {}),
+      ...(workshop ? { workshop } : {})
     }
   });
 
   if (authError || !createdUser.user) {
     return redirectToSettings(request, {
-      operator_error: authError?.message ?? "Creation du compte impossible."
+      operator_error: formatOperatorError(authError?.message, "Creation du compte impossible.")
     });
   }
 
@@ -88,11 +110,19 @@ export async function POST(request: NextRequest) {
     {
       ...basePayload,
       username,
-      rfid_badge_id: rfidBadgeId || null
+      rfid_badge_id: rfidBadgeId || null,
+      phone: phone || null,
+      matricule: matricule || null,
+      department: department || null,
+      workshop: workshop || null
     },
     {
       ...basePayload,
-      badge_rfid: rfidBadgeId || null
+      badge_rfid: rfidBadgeId || null,
+      phone: phone || null,
+      matricule: matricule || null,
+      department: department || null,
+      workshop: workshop || null
     },
     basePayload
   ];
@@ -102,6 +132,17 @@ export async function POST(request: NextRequest) {
     const { error } = await admin.from("profiles").upsert(payload, { onConflict: "id" }).select("id").single();
 
     if (!error) {
+      await admin.from("admin_audit_log").insert({
+        actor_id: auth.profile.id,
+        action: "user.created",
+        target_id: createdUser.user.id,
+        details: {
+          actor_role: auth.profile.role,
+          role: "operator",
+          email,
+          source: "operator_settings"
+        }
+      });
       return redirectToSettings(request, { operator_created: "1" });
     }
 
@@ -114,6 +155,6 @@ export async function POST(request: NextRequest) {
   await admin.auth.admin.deleteUser(createdUser.user.id);
 
   return redirectToSettings(request, {
-    operator_error: lastProfileError ?? "Profil operateur non synchronise."
+    operator_error: formatOperatorError(lastProfileError, "Profil operateur non synchronise.")
   });
 }

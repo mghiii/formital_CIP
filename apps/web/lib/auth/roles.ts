@@ -58,7 +58,13 @@ export function canRoleAccessPath(role: AppRole | string | null | undefined, pat
   }
 
   if (pathname.startsWith("/admin")) {
-    return role === "admin";
+    if (role === "admin") return true;
+
+    if (role === "engineer") {
+      return pathname === "/admin/users" || pathname.startsWith("/admin/users/");
+    }
+
+    return false;
   }
 
   if (pathname.startsWith("/engineer")) {
@@ -73,7 +79,7 @@ export function canRoleAccessPath(role: AppRole | string | null | undefined, pat
 }
 
 export function canAccessPath(profile: Profile, pathname: string): boolean {
-  if (!profile.is_active) {
+  if (profile.is_active === false || profile.status === "inactive") {
     return false;
   }
 

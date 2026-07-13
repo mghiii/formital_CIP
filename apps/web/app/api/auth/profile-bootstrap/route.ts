@@ -47,6 +47,18 @@ function normalizeProfile(profile: Record<string, unknown>): Profile {
         : typeof profile.badge_rfid === "string"
           ? profile.badge_rfid
           : null,
+    phone: typeof profile.phone === "string" ? profile.phone : null,
+    matricule: typeof profile.matricule === "string" ? profile.matricule : null,
+    department: typeof profile.department === "string" ? profile.department : null,
+    workshop: typeof profile.workshop === "string" ? profile.workshop : null,
+    status:
+      profile.status === "active" || profile.status === "inactive" || profile.status === "pending"
+        ? profile.status
+        : typeof profile.is_active === "boolean" && !profile.is_active
+          ? "inactive"
+          : "active",
+    avatar_url: typeof profile.avatar_url === "string" ? profile.avatar_url : null,
+    last_sign_in_at: typeof profile.last_sign_in_at === "string" ? profile.last_sign_in_at : null,
     is_active: typeof profile.is_active === "boolean" ? profile.is_active : true,
     created_at: typeof profile.created_at === "string" ? profile.created_at : new Date().toISOString(),
     updated_at: typeof profile.updated_at === "string" ? profile.updated_at : new Date().toISOString()
