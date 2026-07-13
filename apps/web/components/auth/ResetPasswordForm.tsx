@@ -47,8 +47,8 @@ export function ResetPasswordForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="w-full max-w-md rounded-[1.5rem] bg-white p-6">
-      <h2 className="text-2xl font-semibold tracking-tight text-ink">Nouveau mot de passe</h2>
+    <form onSubmit={onSubmit} className="w-full">
+      <h2 className="text-center text-2xl font-bold tracking-tight text-formital-green">Nouveau mot de passe</h2>
       <div className="mt-8 grid gap-5">
         <FormField id="password" label="Nouveau mot de passe" type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
         <FormField
@@ -59,7 +59,7 @@ export function ResetPasswordForm() {
           onChange={(event) => setConfirmPassword(event.target.value)}
         />
         {error ? <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-danger">{error}</p> : null}
-        <Button type="submit" disabled={loading}>
+        <Button type="submit" disabled={loading} className="min-h-12 bg-formital-green text-base hover:bg-formital-green-dark">
           {loading ? "Mise a jour..." : "Mettre a jour"}
         </Button>
       </div>

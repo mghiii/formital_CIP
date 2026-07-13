@@ -1,24 +1,24 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { getSafeReturnPath, toAppUrl } from "@/lib/auth/redirects";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
-function redirectAfterPost(url: URL) {
-  return NextResponse.redirect(url, { status: 303 });
+function redirectAfterPost(request: NextRequest, path: string) {
+  return NextResponse.redirect(toAppUrl(request, path), { status: 303 });
 }
 
 export async function GET(request: NextRequest) {
-  return redirectAfterPost(new URL("/engineer/history?error=use-delete-form", request.url));
+  return redirectAfterPost(request, "/engineer/history?error=use-delete-form");
 }
 
 export async function POST(request: NextRequest) {
   const supabase = createServerSupabaseClient();
   const formData = await request.formData();
   const cycleId = String(formData.get("cycle_id") ?? "");
-  const returnTo = request.headers.get("referer") ?? "/engineer/history";
-  const cleanReturnTo = returnTo.split("?")[0];
+  const cleanReturnTo = getSafeReturnPath(request, "/engineer/history");
 
   if (!cycleId) {
-    return redirectAfterPost(new URL(`${cleanReturnTo}?error=missing-cycle`, request.url));
+    return redirectAfterPost(request, `${cleanReturnTo}?error=missing-cycle`);
   }
 
   const {
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return redirectAfterPost(new URL("/login", request.url));
+    return redirectAfterPost(request, "/login");
   }
 
   const { data: profile } = await supabase
@@ -36,15 +36,15 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (!profile?.is_active || !["engineer", "admin"].includes(String(profile.role))) {
-    return redirectAfterPost(new URL("/unauthorized", request.url));
+    return redirectAfterPost(request, "/unauthorized");
   }
 
   const db = createAdminSupabaseClient() ?? supabase;
   const { error } = await db.from("cip_cycles").delete().eq("id", cycleId);
 
   if (error) {
-    return redirectAfterPost(new URL(`${cleanReturnTo}?error=cycle-delete`, request.url));
+    return redirectAfterPost(request, `${cleanReturnTo}?error=cycle-delete`);
   }
 
-  return redirectAfterPost(new URL(`${cleanReturnTo}?deleted=cycle`, request.url));
+  return redirectAfterPost(request, `${cleanReturnTo}?deleted=cycle`);
 }

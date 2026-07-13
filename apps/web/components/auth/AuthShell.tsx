@@ -4,11 +4,11 @@ import { FormitalLogo } from "@/components/brand/FormitalLogo";
 
 export function AuthShell({ children }: PropsWithChildren) {
   return (
-    <main className="min-h-screen overflow-hidden bg-[#f7faf7] px-4 py-5 text-ink dark:bg-[#07120d] sm:px-5 sm:py-6">
-      <div className="fixed right-5 top-5 z-30">
+    <main className="min-h-dvh bg-[#f7faf7] px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-[max(1.25rem,env(safe-area-inset-top))] text-ink dark:bg-[#07120d] sm:px-5 sm:py-6">
+      <div className="fixed right-4 top-[max(1rem,env(safe-area-inset-top))] z-30 lg:right-5 lg:top-5">
         <ThemeToggle />
       </div>
-      <section className="mx-auto grid min-h-[calc(100vh-2.5rem)] w-full max-w-7xl items-center gap-8 lg:min-h-[calc(100vh-3rem)] lg:rounded-[1.5rem] lg:border lg:border-formital-green/20 lg:bg-white/90 lg:p-10 lg:shadow-soft lg:dark:bg-[#0b1711]/80 lg:grid-cols-[1fr_0.92fr]">
+      <section className="mx-auto grid min-h-[calc(100dvh-2.5rem)] w-full max-w-md items-center lg:max-w-7xl lg:gap-8 lg:rounded-[1.5rem] lg:border lg:border-formital-green/20 lg:bg-white/90 lg:p-10 lg:shadow-soft lg:dark:bg-[#0b1711]/80 lg:grid-cols-[1fr_0.92fr]">
         <div className="relative hidden min-h-[680px] overflow-hidden rounded-2xl bg-white p-8 dark:bg-[#0b1711] lg:flex">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_28%,rgba(31,122,58,0.10),transparent_28%),linear-gradient(160deg,#ffffff_0%,#f2f7f1_54%,#dceee0_100%)] dark:bg-[radial-gradient(circle_at_72%_28%,rgba(84,200,120,0.14),transparent_28%),linear-gradient(160deg,#0b1711_0%,#102318_58%,#163823_100%)]" />
           <div className="absolute bottom-0 left-0 right-0 h-44 bg-formital-green" style={{ clipPath: "polygon(0 52%, 100% 0, 100% 100%, 0% 100%)" }} />
@@ -40,8 +40,8 @@ export function AuthShell({ children }: PropsWithChildren) {
             <div className="mt-auto pt-10 text-sm font-semibold text-white">Qualite - Securite - Performance</div>
           </div>
         </div>
-        <div className="flex min-h-[calc(100vh-2.5rem)] items-center justify-center lg:min-h-0">
-          <div className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-soft dark:border-[#315941] dark:bg-[#0d1b13] sm:p-8">
+        <div className="flex min-h-[calc(100dvh-2.5rem)] items-center justify-center lg:min-h-0">
+          <div className="w-full rounded-2xl border border-slate-200 bg-white p-5 shadow-soft dark:border-[#315941] dark:bg-[#0d1b13] sm:p-8 lg:max-w-xl">
             <div className="mb-7 flex justify-center text-center">
               <FormitalLogo />
             </div>

@@ -205,7 +205,7 @@ function CyclesGraph({
   }
 
   const max = Math.max(...cycles.map(({ cycle }) => (cycle.duration > 0 ? cycle.duration : 1)), 1);
-  const width = Math.max(980, cycles.length * 92);
+  const width = Math.max(1080, cycles.length * 128);
   const height = 420;
   const top = 32;
   const bottom = 330;
@@ -217,7 +217,7 @@ function CyclesGraph({
   const tooltipWidth = 268;
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-[#315941] dark:bg-[#07170f]">
+    <div className="responsive-table-shell rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-[#315941] dark:bg-[#07170f]">
       <div className="relative" style={{ width, height }}>
       <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Graphe de tous les cycles CIP">
         {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
@@ -262,8 +262,10 @@ function CyclesGraph({
               onMouseLeave={() => setTooltip(null)}
               onFocus={() => setTooltip(tooltipData)}
               onBlur={() => setTooltip(null)}
+              aria-label={`${cycle.equipment}, ${tooltipData.workshop}, ${tooltipData.duration}`}
             >
               <title>{tooltip}</title>
+              <rect x={x - slotWidth / 2} y={top} width={slotWidth} height={height - top} fill="transparent" style={{ pointerEvents: "all" }} />
               <rect x={x - barWidth / 2} y={y} width={barWidth} height={barHeight} rx="8" fill={cycleColor(cycle)} />
               <text x={x} y={Math.max(18, y - 8)} textAnchor="middle" className="fill-slate-950 text-xs font-bold dark:fill-white">
                 {cycle.duration > 0 ? `${cycle.duration}m` : "<1m"}
@@ -332,7 +334,7 @@ function CyclesDetailsList({ cycles }: { cycles: Array<{ cycle: CipCycle; date: 
           {cycles.length} cycles
         </span>
       </div>
-      <div className="max-h-80 overflow-auto">
+      <div className="responsive-table-shell max-h-80">
         <table className="w-full min-w-[860px] text-left text-sm">
           <thead className="sticky top-0 border-b border-slate-200 bg-white text-xs uppercase tracking-wide text-slate-500 dark:border-[#315941] dark:bg-[#0d1b13]">
             <tr>
@@ -386,12 +388,12 @@ export function AllCyclesGraphModal({ cycles, equipments = [] }: AllCyclesGraphM
         Voir graphe complet
       </button>
       {open ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 px-4 py-6 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="all-cycles-graph-title">
-          <div className="relative max-h-[92vh] w-full max-w-6xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 pr-16 shadow-2xl dark:border-[#315941] dark:bg-[#0d1b13] sm:pr-20">
+        <div className="fixed inset-0 z-50 grid place-items-end bg-slate-950/60 px-0 py-0 backdrop-blur-sm sm:place-items-center sm:px-4 sm:py-6" role="dialog" aria-modal="true" aria-labelledby="all-cycles-graph-title">
+          <div className="relative max-h-[92dvh] w-full max-w-7xl overflow-y-auto rounded-t-2xl border border-slate-200 bg-white p-5 pt-16 shadow-2xl dark:border-[#315941] dark:bg-[#0d1b13] sm:rounded-2xl sm:p-6 sm:pr-20">
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="absolute right-4 top-4 grid h-11 w-11 place-items-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-formital-green hover:text-formital-green dark:border-[#315941] dark:bg-[#102218] dark:text-slate-300"
+              className="absolute right-4 top-4 grid h-12 w-12 place-items-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-formital-green hover:text-formital-green dark:border-[#315941] dark:bg-[#102218] dark:text-slate-300"
               aria-label="Fermer"
             >
               X

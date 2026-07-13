@@ -42,7 +42,7 @@ export type CipDashboardData = {
   dailyCycles: number[];
   waterConsumption: number[];
   detergentConsumption: number[];
-  users: Array<[string, string, string, string]>;
+  users: Array<[string, string, string, string, string]>;
   checklists: Record<string, ChecklistState>;
   source: "supabase" | "unavailable";
   notice?: string;
@@ -109,9 +109,9 @@ function minutesBetween(startedAt: unknown, endedAt?: unknown) {
 
 function mapCycleStatus(status: unknown): CycleStatus {
   const value = text(status);
-  if (value === "in_progress") return "En cours";
+  if (value === "in_progress" || value === "running") return "En cours";
   if (value === "completed") return "Termine";
-  if (value === "cancelled") return "Bloque";
+  if (value === "cancelled" || value === "failed") return "Bloque";
   return "Planifie";
 }
 
@@ -277,28 +277,37 @@ export async function getCipDashboardData(profile?: Pick<Profile, "role">): Prom
       const equipment = equipmentsById.get(text(cycle.equipment_id));
       const process = processesById.get(text(cycle.process_id));
       const operator = profilesById.get(text(cycle.operator_id));
+      const rawStatus = text(cycle.status, "draft");
+      const isPlanned = ["draft", "planned", "ready"].includes(rawStatus);
+      const displayDate = isPlanned ? cycle.planned_start_time ?? cycle.started_at : cycle.started_at;
       const soda = numberValue(cycle.soda_quantity);
       const acid = numberValue(cycle.acid_quantity);
       const storedDuration = numberValue(cycle.duration_minutes);
-      const liveDuration = storedDuration || minutesBetween(cycle.started_at, cycle.ended_at);
+      const plannedDuration = numberValue(cycle.planned_duration_minutes, 45);
+      const liveDuration = isPlanned ? plannedDuration : storedDuration || minutesBetween(cycle.started_at, cycle.ended_at);
 
       return {
         id: text(cycle.id, `CIP-${index + 1}`),
-        date: formatDate(cycle.started_at),
-        startedAt: text(cycle.started_at) || undefined,
+        date: formatDate(displayDate),
+        startedAt: isPlanned ? undefined : text(cycle.started_at) || undefined,
         endedAt: text(cycle.ended_at) || null,
+        plannedAt: text(cycle.planned_start_time) || undefined,
+        rawStatus,
+        operatorId: text(cycle.operator_id) || null,
         equipment: text(equipment?.name, "Equipement non renseigne"),
         process: text(process?.name, "Programme CIP"),
         status: mapCycleStatus(cycle.status),
         result: mapCycleResult(cycle.result, cycle.status),
-        operator: text(operator?.full_name, text(operator?.email, "Operateur")),
+        operator: text(operator?.full_name, text(operator?.email, "Non assigne")),
         duration: liveDuration,
-        targetDurationMinutes: Math.max(liveDuration, 45),
+        targetDurationMinutes: plannedDuration > 0 ? plannedDuration : Math.max(liveDuration, 45),
         temperature: numberValue(cycle.temperature_c),
         water: numberValue(cycle.water_consumed_l),
         soda,
         acid,
         detergent: soda + acid,
+        priority: text(cycle.priority, "normal"),
+        instructions: text(cycle.instructions, ""),
         visualAspect: text(cycle.visual_aspect, "Non renseigne"),
         observation: text(cycle.observation, "Aucune observation")
       };
@@ -350,6 +359,7 @@ export async function getCipDashboardData(profile?: Pick<Profile, "role">): Prom
     });
 
     const users: CipDashboardData["users"] = profileRows.map((profile) => [
+      text(profile.id),
       text(profile.email, "email non renseigne"),
       text(profile.full_name, "Utilisateur Formital"),
       text(profile.role, "operator"),

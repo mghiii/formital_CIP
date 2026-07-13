@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getRouteAuthContext, isPrivilegedProfile } from "@/lib/auth/api";
+import { getSafeReturnPath, toAppUrl } from "@/lib/auth/redirects";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
 function decimal(formData: FormData, name: string) {
@@ -15,15 +16,14 @@ export async function POST(request: NextRequest) {
   const cycleId = String(formData.get("cycle_id") ?? "");
   const result = String(formData.get("result") ?? "");
   const observation = String(formData.get("observation") ?? "").trim();
-  const returnTo = request.headers.get("referer") ?? "/operator/dashboard";
-  const cleanReturnTo = returnTo.split("?")[0];
+  const cleanReturnTo = getSafeReturnPath(request, "/operator/dashboard");
 
   if (!cycleId || !["compliant", "non_compliant"].includes(result)) {
-    return NextResponse.redirect(new URL(`${cleanReturnTo}?error=complete-fields`, request.url));
+    return NextResponse.redirect(toAppUrl(request, `${cleanReturnTo}?error=complete-fields`));
   }
 
   if (!context) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return NextResponse.redirect(toAppUrl(request, "/login"));
   }
 
   const { supabase, user, profile } = context;
@@ -36,11 +36,15 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (!existingCycle?.id || (!isPrivileged && existingCycle.operator_id !== user.id)) {
-    return NextResponse.redirect(new URL("/unauthorized", request.url));
+    return NextResponse.redirect(toAppUrl(request, "/unauthorized"));
   }
 
-  if (existingCycle.status === "completed" || existingCycle.status === "cancelled") {
-    return NextResponse.redirect(new URL(`${cleanReturnTo}?error=cycle-already-closed`, request.url));
+  if (existingCycle.status === "completed" || existingCycle.status === "cancelled" || existingCycle.status === "failed") {
+    return NextResponse.redirect(toAppUrl(request, `${cleanReturnTo}?error=cycle-already-closed`));
+  }
+
+  if (!["in_progress", "running"].includes(String(existingCycle.status))) {
+    return NextResponse.redirect(toAppUrl(request, `${cleanReturnTo}?error=cycle-not-running`));
   }
 
   const temperature = decimal(formData, "temperature_c");
@@ -68,7 +72,7 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (updateError || !cycle?.id) {
-    return NextResponse.redirect(new URL(`${cleanReturnTo}?error=cycle-complete`, request.url));
+    return NextResponse.redirect(toAppUrl(request, `${cleanReturnTo}?error=cycle-complete`));
   }
 
   const parameterRows = [
@@ -121,5 +125,5 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  return NextResponse.redirect(new URL(`${cleanReturnTo}?completed=cycle`, request.url));
+  return NextResponse.redirect(toAppUrl(request, `${cleanReturnTo}?completed=cycle`));
 }

@@ -14,11 +14,11 @@ const toneClass = {
 
 export function KpiCard({ label, value, trend, tone = "green" }: KpiCardProps) {
   return (
-    <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+    <article className="min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
       <div className="flex items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0">
           <p className="text-sm font-semibold text-slate-500">{label}</p>
-          <p className="mt-3 text-3xl font-bold tracking-tight text-slate-950">{value}</p>
+          <p className="mt-3 break-words text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">{value}</p>
           <p className="mt-2 text-xs text-slate-500">vs periode precedente</p>
         </div>
         <span className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-xs font-bold ${toneClass[tone]}`}>{trend}</span>

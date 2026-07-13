@@ -1,10 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { redirectToAppPath } from "@/lib/auth/redirects";
 import { requirePublicSupabaseConfig } from "@/lib/supabase/config";
 import type { SupabaseCookieOptions } from "@/lib/supabase/cookies";
 
 async function signOut(request: NextRequest) {
-  const response = NextResponse.redirect(new URL("/login", request.url));
+  const response = redirectToAppPath(request, "/login", 303);
   const { url, anonKey } = requirePublicSupabaseConfig();
   const supabase = createServerClient(url, anonKey, {
     cookies: {
@@ -21,6 +22,12 @@ async function signOut(request: NextRequest) {
   });
 
   await supabase.auth.signOut();
+  for (const cookie of request.cookies.getAll()) {
+    if (cookie.name.startsWith("sb-") || cookie.name.toLowerCase().includes("supabase")) {
+      response.cookies.set({ name: cookie.name, value: "", path: "/", maxAge: 0 });
+    }
+  }
+  response.headers.set("Cache-Control", "no-store, max-age=0");
 
   return response;
 }

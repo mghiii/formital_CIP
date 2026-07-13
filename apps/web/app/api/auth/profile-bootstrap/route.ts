@@ -10,7 +10,7 @@ function isAppRole(value: unknown): value is AppRole {
   return typeof value === "string" && appRoles.includes(value as AppRole);
 }
 
-function inferRole(email: string | undefined, appMetadataRole: unknown): AppRole {
+function inferRole(email: string | undefined, appMetadataRole: unknown): AppRole | null {
   if (isAppRole(appMetadataRole)) {
     return appMetadataRole;
   }
@@ -19,16 +19,28 @@ function inferRole(email: string | undefined, appMetadataRole: unknown): AppRole
     return "engineer";
   }
 
-  return "operator";
+  if (email?.toLowerCase().startsWith("operateur@")) {
+    return "operator";
+  }
+
+  if (email?.toLowerCase().startsWith("admin@")) {
+    return "admin";
+  }
+
+  return null;
 }
 
 function normalizeProfile(profile: Record<string, unknown>): Profile {
+  if (!isAppRole(profile.role)) {
+    throw new Error("Role de profil invalide.");
+  }
+
   return {
     id: String(profile.id),
     full_name: typeof profile.full_name === "string" ? profile.full_name : null,
     username: typeof profile.username === "string" ? profile.username : null,
     email: typeof profile.email === "string" ? profile.email : null,
-    role: isAppRole(profile.role) ? profile.role : "operator",
+    role: profile.role,
     rfid_badge_id:
       typeof profile.rfid_badge_id === "string"
         ? profile.rfid_badge_id
@@ -74,6 +86,10 @@ export async function POST() {
   const username = typeof user.user_metadata?.username === "string" ? user.user_metadata.username : null;
   const rfidBadgeId = typeof user.user_metadata?.rfid_badge_id === "string" ? user.user_metadata.rfid_badge_id : null;
   const role = inferRole(user.email, user.app_metadata?.role);
+  if (!role) {
+    console.error(`[auth] Profil absent et role impossible a deduire pour ${user.id}.`);
+    return NextResponse.json({ message: "Profil manquant. Contactez un administrateur." }, { status: 409 });
+  }
   const basePayload = {
     id: user.id,
     email,
@@ -99,7 +115,12 @@ export async function POST() {
     const { data, error } = await admin.from("profiles").upsert(payload, { onConflict: "id" }).select("*").single();
 
     if (!error && data) {
-      return NextResponse.json({ profile: normalizeProfile(data as Record<string, unknown>) });
+      try {
+        return NextResponse.json({ profile: normalizeProfile(data as Record<string, unknown>) });
+      } catch (caughtError) {
+        console.error(`[auth] Profil invalide cree pour ${user.id}:`, caughtError);
+        return NextResponse.json({ message: "Role de profil invalide." }, { status: 422 });
+      }
     }
 
     lastError = error;

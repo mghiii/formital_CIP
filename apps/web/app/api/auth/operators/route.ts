@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { getRouteAuthContext, isPrivilegedProfile } from "@/lib/auth/api";
+import { toAppUrl } from "@/lib/auth/redirects";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
-function redirectToSettings(request: Request, params: Record<string, string>) {
-  const url = new URL("/engineer/settings", request.url);
+function redirectToSettings(request: NextRequest, params: Record<string, string>) {
+  const url = toAppUrl(request, "/engineer/settings");
 
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value);
@@ -21,7 +22,7 @@ function schemaFallbackAllowed(message?: string) {
   return /schema cache|column|Could not find/i.test(message ?? "");
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const auth = await getRouteAuthContext();
 
   if (!auth) {

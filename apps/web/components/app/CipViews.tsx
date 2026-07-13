@@ -62,9 +62,9 @@ function SectionCard({
   children: ReactNode;
 }) {
   return (
-    <section className={`self-start rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition-colors ${className}`}>
-      <div className="mb-4 flex items-center justify-between gap-4">
-        <h2 className="text-lg font-bold text-slate-950">{title}</h2>
+    <section className={`min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-colors sm:p-5 ${className}`}>
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="min-w-0 text-lg font-bold text-slate-950">{title}</h2>
         <div className="flex flex-wrap items-center justify-end gap-3">
           {actionNode}
           {action && actionHref ? (
@@ -89,15 +89,55 @@ function EmptyState({ children }: { children: ReactNode }) {
   );
 }
 
+const workflowErrorMessages: Record<string, string> = {
+  missing_equipment: "Selectionnez une machine avant de demarrer le cycle.",
+  "missing-equipment": "Selectionnez une machine avant de demarrer le cycle.",
+  checklist_incomplete: "La checklist doit etre entierement validee avant le demarrage.",
+  "checklist-incomplete": "La checklist doit etre entierement validee avant le demarrage.",
+  equipment_unavailable: "Cette machine n'est pas disponible pour un demarrage CIP.",
+  "equipment-unavailable": "Cette machine n'est pas disponible pour un demarrage CIP.",
+  equipment_out_of_service: "Cette machine est hors service.",
+  equipment_cleaning: "Cette machine est deja en cours de nettoyage.",
+  equipment_has_running_cycle: "Cette machine a deja un cycle CIP en cours.",
+  "equipment-has-active-cycle": "Cette machine a deja un cycle CIP en cours.",
+  "equipment-busy": "Cette machine a deja un cycle CIP en cours ou est en nettoyage.",
+  cycle_assigned_other_operator: "Ce cycle est assigne a un autre operateur.",
+  "cycle-assigned-to-another-operator": "Ce cycle est assigne a un autre operateur.",
+  cycle_not_startable: "Ce cycle n'est pas dans un statut lancable.",
+  "invalid-cycle-status": "Ce cycle n'est pas dans un statut lancable.",
+  launch_window_not_open: "Le cycle n'est pas encore dans sa fenetre de demarrage.",
+  "start-window-not-open": "Le cycle n'est pas encore dans sa fenetre de demarrage.",
+  process_equipment_mismatch: "Le process du cycle ne correspond pas a la machine selectionnee.",
+  "process-equipment-mismatch": "Le process du cycle ne correspond pas a la machine selectionnee.",
+  profile_not_allowed: "Votre role ne permet pas cette action.",
+  unauthorized: "Votre session ou votre profil ne permet pas cette action.",
+  "already-running": "Ce cycle a deja ete demarre.",
+  cycle_not_running: "Le cycle doit etre en cours pour etre cloture.",
+  "cycle-not-running": "Le cycle doit etre en cours pour etre cloture.",
+  cycle_start: "Le cycle n'a pas pu demarrer. Verifiez la checklist, la machine et l'affectation.",
+  "cycle-start": "Le cycle n'a pas pu demarrer. Verifiez la checklist, la machine et l'affectation."
+};
+
+function WorkflowNotice({ error }: { error?: string }) {
+  if (!error) return null;
+  const message = workflowErrorMessages[error] ?? "Action impossible pour ce cycle. Verifiez les droits, le statut et la disponibilite machine.";
+
+  return (
+    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-100">
+      {message}
+    </div>
+  );
+}
+
 export function QualityDashboardView({ data = fallbackData }: { data?: CipDashboardData }) {
   const metrics = data.metrics;
   const completedCycles = data.cycles.filter((cycle) => cycle.status === "Termine");
   const activeCycles = data.cycles.filter((cycle) => ["En cours", "Planifie"].includes(cycle.status));
   const compliantCycles = completedCycles.filter((cycle) => cycle.result === "Conforme").length;
   const nonCompliantCycles = completedCycles.filter((cycle) => cycle.result === "Non conforme").length;
-  const tallCard = "flex h-full min-h-[34rem] flex-col self-stretch";
-  const mediumCard = "flex h-full min-h-[24rem] flex-col self-stretch";
-  const tableCard = "flex h-full min-h-[32rem] flex-col self-stretch";
+  const tallCard = "flex h-full min-h-[22rem] flex-col self-stretch lg:min-h-[26rem]";
+  const mediumCard = "flex h-full min-h-[14rem] flex-col self-stretch lg:min-h-[18rem]";
+  const tableCard = "flex h-full min-h-[18rem] flex-col self-stretch lg:min-h-[22rem]";
   const cardBody = "flex min-h-0 flex-1 flex-col";
   const completedResultRows = [
     ["Conformes", compliantCycles, "bg-formital-green"],
@@ -234,7 +274,7 @@ function ComplianceDonutLite({ value, compliant, nonCompliant }: { value: number
 
 function HorizontalMetricBars({ rows, total }: { rows: ReadonlyArray<readonly [string, number, string]>; total: number }) {
   return (
-    <div className="grid h-full content-start gap-4">
+    <div className="grid min-h-0 content-start gap-4">
       {rows.map(([label, value, color]) => (
         <div key={label}>
           <div className="mb-2 flex items-center justify-between text-sm">
@@ -329,7 +369,7 @@ function ProcessDecisionMatrix({ cycles }: { cycles: CipDashboardData["cycles"] 
   if (rows.length === 0) return <EmptyState>Aucun cycle termine pour analyser les programmes.</EmptyState>;
 
   return (
-    <div className="grid min-h-0 flex-1 content-start gap-3 overflow-y-auto pr-1">
+    <div className="responsive-card-scroll grid max-h-[24rem] flex-1 content-start gap-3 pr-1">
       {rows.map((row) => (
         <div key={row.name} className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-[#315941] dark:bg-[#07170f]">
           <div className="flex items-start justify-between gap-3">
@@ -371,7 +411,7 @@ function DurationGapChart({ cycles }: { cycles: CipDashboardData["cycles"] }) {
   if (rows.length === 0) return <EmptyState>Aucune duree terminee disponible.</EmptyState>;
 
   return (
-    <div className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto pr-1">
+    <div className="responsive-card-scroll grid max-h-[24rem] flex-1 content-start gap-4 pr-1">
       {rows.map((row) => {
         const delayed = row.durationGap > 0;
         return (
@@ -403,7 +443,7 @@ function ResourceEfficiencyChart({ cycles }: { cycles: CipDashboardData["cycles"
   if (rows.length === 0) return <EmptyState>Aucune consommation terminee disponible.</EmptyState>;
 
   return (
-    <div className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto pr-1">
+    <div className="responsive-card-scroll grid max-h-[24rem] flex-1 content-start gap-4 pr-1">
       {rows.map((row) => (
         <div key={row.name}>
           <div className="mb-2 flex items-center justify-between gap-3 text-sm">
@@ -458,7 +498,7 @@ function ImprovementPriorityBoard({
   if (rows.length === 0) return <EmptyState>Aucune priorite critique detectee pour le moment.</EmptyState>;
 
   return (
-    <div className="grid h-full content-start gap-3 md:grid-cols-2">
+    <div className="grid min-h-0 content-start gap-3 md:grid-cols-2">
       {rows.slice(0, 4).map(([label, title, detail, tone]) => (
         <div key={`${label}-${title}`} className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-[#315941] dark:bg-[#07170f]">
           <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${tone}`}>{label}</span>
@@ -480,7 +520,7 @@ function CycleFollowUpChart({ cycles }: { cycles: CipDashboardData["cycles"] }) 
   const total = Math.max(cycles.length, 1);
 
   return (
-    <div className="grid h-full content-start gap-4">
+    <div className="grid min-h-0 content-start gap-4">
       <HorizontalMetricBars rows={rows} total={total} />
       <div className="rounded-lg bg-slate-50 p-4 text-sm text-muted dark:bg-white/5">
         <b className="text-slate-950">{cycles.filter((cycle) => ["Planifie", "En cours"].includes(cycle.status)).length}</b> cycles demandent un suivi operationnel.
@@ -492,17 +532,17 @@ function CycleFollowUpChart({ cycles }: { cycles: CipDashboardData["cycles"] }) 
 
 function DashboardExportPanel() {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+    <section className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition-colors dark:border-[#315941] dark:bg-[#102018]">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
+        <div className="min-w-0">
           <h2 className="text-lg font-bold text-slate-950">Export rapport</h2>
           <p className="mt-1 text-sm text-muted">Rapport qualite genere depuis les donnees visibles dans la base de donnees.</p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <a href="/api/cip/export?format=pdf" className="rounded-lg bg-formital-green px-4 py-3 text-center text-sm font-bold text-white transition hover:bg-formital-green-dark">
+          <a href="/api/cip/export?format=pdf" className="inline-flex min-h-12 items-center justify-center rounded-lg bg-formital-green px-4 py-3 text-center text-sm font-bold text-white transition hover:bg-formital-green-dark">
             Exporter PDF
           </a>
-          <a href="/api/cip/export?format=excel" className="rounded-lg border border-formital-green px-4 py-3 text-center text-sm font-bold text-formital-green transition hover:bg-formital-green/10">
+          <a href="/api/cip/export?format=excel" className="inline-flex min-h-12 items-center justify-center rounded-lg border border-formital-green px-4 py-3 text-center text-sm font-bold text-formital-green transition hover:bg-formital-green/10">
             Exporter Excel
           </a>
         </div>
@@ -514,14 +554,16 @@ function DashboardExportPanel() {
 function CycleExecutionWorkspace({
   profile,
   data = fallbackData,
-  historyHref = "/operator/history"
+  historyHref = "/operator/history",
+  showRecentCycles = true
 }: {
   profile: Profile;
   data?: CipDashboardData;
   historyHref?: string;
+  showRecentCycles?: boolean;
 }) {
   const activeCycles = data.cycles.filter((cycle) => ["En cours", "Planifie"].includes(cycle.status));
-  const occupiedEquipmentNames = new Set(activeCycles.map((cycle) => cycle.equipment));
+  const occupiedEquipmentNames = new Set(data.cycles.filter((cycle) => cycle.status === "En cours").map((cycle) => cycle.equipment));
   const fallbackOperatorName = profile.full_name ?? profile.email ?? "Operateur";
   const availableEquipments = data.equipments.filter(
     (equipment) => !["En nettoyage", "Hors service"].includes(equipment.status) && !occupiedEquipmentNames.has(equipment.name)
@@ -533,7 +575,15 @@ function CycleExecutionWorkspace({
         {activeCycles.length > 0 ? (
           <div className="grid gap-5">
             {activeCycles.map((cycle) => (
-              <ActiveCycleCard key={cycle.id} cycle={cycle} fallbackOperatorName={fallbackOperatorName} checklist={data.checklists[cycle.id]} />
+              <ActiveCycleCard
+                key={cycle.id}
+                cycle={cycle}
+                equipment={data.equipments.find((equipment) => equipment.name === cycle.equipment)}
+                profile={profile}
+                fallbackOperatorName={fallbackOperatorName}
+                checklist={data.checklists[cycle.id]}
+                canForceStart={profile.role === "engineer" || profile.role === "admin"}
+              />
             ))}
           </div>
         ) : (
@@ -548,15 +598,30 @@ function CycleExecutionWorkspace({
       <SectionCard title="Lancer un nouveau cycle">
         <StartCycleForm data={data} availableEquipments={availableEquipments} />
       </SectionCard>
-      <div className="xl:col-span-2">
-        <CyclesTable compact cycles={data.cycles} checklists={data.checklists} historyHref={historyHref} />
-      </div>
+      {showRecentCycles ? (
+        <div className="min-w-0 xl:col-span-2">
+          <CyclesTable compact cycles={data.cycles} checklists={data.checklists} historyHref={historyHref} />
+        </div>
+      ) : null}
     </div>
   );
 }
 
-export function OperatorDashboardView({ profile, data = fallbackData }: { profile: Profile; data?: CipDashboardData }) {
-  return <CycleExecutionWorkspace profile={profile} data={data} historyHref="/operator/history" />;
+export function OperatorDashboardView({
+  profile,
+  data = fallbackData,
+  workflowError
+}: {
+  profile: Profile;
+  data?: CipDashboardData;
+  workflowError?: string;
+}) {
+  return (
+    <div className="grid gap-6">
+      <WorkflowNotice error={workflowError} />
+      <CycleExecutionWorkspace profile={profile} data={data} historyHref="/operator/history" />
+    </div>
+  );
 }
 
 function parameterValue(value: number | string | undefined | null, suffix = "") {
@@ -596,14 +661,21 @@ function CurrentParameters({ cycle }: { cycle: CipDashboardData["cycles"][number
 
 function ActiveCycleCard({
   cycle,
+  equipment,
+  profile,
   fallbackOperatorName,
-  checklist
+  checklist,
+  canForceStart = false
 }: {
   cycle: CipDashboardData["cycles"][number];
+  equipment?: CipDashboardData["equipments"][number];
+  profile: Profile;
   fallbackOperatorName: string;
   checklist?: CipDashboardData["checklists"][string];
+  canForceStart?: boolean;
 }) {
   const operatorName = cycle.operator || fallbackOperatorName;
+  const plannedReadiness = getPlannedCycleReadiness({ cycle, equipment, profile, checklist, canForceStart });
 
   return (
     <article className="grid gap-5 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-[#315941] dark:bg-[#07170f]">
@@ -614,12 +686,13 @@ function ActiveCycleCard({
           <p className="mt-2 text-sm text-muted">{cycle.process} - Operateur: {operatorName}</p>
           <p className="mt-3"><StatusBadge value={cycle.status} /></p>
         </div>
-        <CycleTimer cycle={cycle} />
+        {cycle.status === "Planifie" ? <PlannedCycleSummary cycle={cycle} readiness={plannedReadiness} /> : <CycleTimer cycle={cycle} />}
       </div>
-      <CurrentParameters cycle={cycle} />
       {cycle.status === "Planifie" ? (
-        <PlannedCycleStartForm cycleId={cycle.id} checklist={checklist} />
+        <PlannedCycleStartForm cycleId={cycle.id} checklist={checklist} readiness={plannedReadiness} canForceStart={canForceStart} />
       ) : (
+      <>
+      <CurrentParameters cycle={cycle} />
       <form action="/api/cip/cycles/complete" method="post" className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 dark:border-[#315941] dark:bg-[#08160f]">
         <input type="hidden" name="cycle_id" value={cycle.id} />
         <div className="grid gap-3 md:grid-cols-3">
@@ -663,12 +736,141 @@ function ActiveCycleCard({
           </button>
         </div>
       </form>
+      </>
       )}
     </article>
   );
 }
 
-function PlannedCycleStartForm({ cycleId, checklist }: { cycleId: string; checklist?: CipDashboardData["checklists"][string] }) {
+type PlannedCycleBlocker = {
+  message: string;
+  hard: boolean;
+};
+
+type PlannedCycleReadiness = {
+  status: "launchable" | "action_required" | "blocked";
+  label: string;
+  blockers: PlannedCycleBlocker[];
+  hardBlockers: PlannedCycleBlocker[];
+};
+
+function getPlannedCycleReadiness({
+  cycle,
+  equipment,
+  profile,
+  checklist,
+  canForceStart
+}: {
+  cycle: CipDashboardData["cycles"][number];
+  equipment?: CipDashboardData["equipments"][number];
+  profile: Profile;
+  checklist?: CipDashboardData["checklists"][string];
+  canForceStart: boolean;
+}): PlannedCycleReadiness {
+  const blockers: PlannedCycleBlocker[] = [];
+  const rawStatus = cycle.rawStatus ?? "planned";
+  const checklistReady = checklist?.all_validated === true;
+  const plannedAt = cycle.plannedAt ? new Date(cycle.plannedAt) : null;
+  const startWindowNotOpen = plannedAt && !Number.isNaN(plannedAt.getTime()) && Date.now() < plannedAt.getTime() - 30 * 60 * 1000;
+
+  if (!["draft", "planned", "ready"].includes(rawStatus)) {
+    blockers.push({ hard: true, message: `Statut cycle non lancable: ${rawStatus}.` });
+  }
+
+  if (!equipment) {
+    blockers.push({ hard: true, message: "Machine introuvable dans la base de donnees." });
+  } else if (equipment.status === "En nettoyage") {
+    blockers.push({ hard: true, message: "Cette machine est deja en nettoyage." });
+  } else if (equipment.status === "Hors service") {
+    blockers.push({ hard: true, message: "Cette machine est hors service." });
+  }
+
+  if (profile.role === "operator" && cycle.operatorId && cycle.operatorId !== profile.id) {
+    blockers.push({ hard: true, message: "Ce cycle est assigne a un autre operateur." });
+  }
+
+  if (!checklistReady) {
+    blockers.push({ hard: false, message: "Checklist a valider avant le demarrage." });
+  }
+
+  if (startWindowNotOpen && !canForceStart) {
+    blockers.push({ hard: true, message: "Le cycle sera lancable 30 minutes avant l'heure planifiee." });
+  }
+
+  const hardBlockers = blockers.filter((blocker) => blocker.hard);
+  const status = hardBlockers.length > 0 ? "blocked" : blockers.length > 0 ? "action_required" : "launchable";
+
+  return {
+    status,
+    label: status === "blocked" ? "Cycle bloque" : status === "action_required" ? "Action requise" : "Cycle lancable",
+    blockers,
+    hardBlockers
+  };
+}
+
+function PlannedCycleSummary({
+  cycle,
+  readiness
+}: {
+  cycle: CipDashboardData["cycles"][number];
+  readiness: PlannedCycleReadiness;
+}) {
+  const statusClass =
+    readiness.status === "blocked"
+      ? "border-red-200 bg-red-50 text-red-800 dark:border-red-400/30 dark:bg-red-500/10 dark:text-red-100"
+      : readiness.status === "action_required"
+        ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-100"
+        : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-100";
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-5 transition-colors dark:border-[#315941] dark:bg-[#0b1d13]">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide text-formital-green dark:text-[#64d889]">Cycle planifie</p>
+          <p className="mt-2 text-xl font-bold text-slate-950 dark:text-white">{cycle.date}</p>
+        </div>
+        <span className={`rounded-full border px-3 py-1 text-xs font-bold ${statusClass}`}>{readiness.label}</span>
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+        <div className="rounded-lg bg-slate-50 p-3 dark:bg-white/5">
+          <p className="text-muted">Duree cible</p>
+          <p className="mt-1 font-bold text-slate-950 dark:text-white">{cycle.targetDurationMinutes} min</p>
+        </div>
+        <div className="rounded-lg bg-slate-50 p-3 dark:bg-white/5">
+          <p className="text-muted">Priorite</p>
+          <p className="mt-1 font-bold text-slate-950 dark:text-white">{cycle.priority ?? "normal"}</p>
+        </div>
+      </div>
+      {readiness.blockers.length > 0 ? (
+        <div className={`mt-4 rounded-lg border p-3 text-sm font-semibold ${statusClass}`}>
+          <p>{readiness.status === "blocked" ? "Raison du blocage" : "Avant demarrage"}</p>
+          <ul className="mt-2 grid gap-1">
+            {readiness.blockers.map((blocker) => (
+              <li key={blocker.message}>- {blocker.message}</li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <p className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800 dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-100">
+          Tous les controles sont valides. Le cycle peut etre lance.
+        </p>
+      )}
+      {cycle.instructions ? <p className="mt-4 rounded-lg bg-amber-50 p-3 text-sm font-semibold text-amber-800 dark:bg-amber-500/10 dark:text-amber-100">{cycle.instructions}</p> : null}
+    </div>
+  );
+}
+
+function PlannedCycleStartForm({
+  cycleId,
+  checklist,
+  readiness,
+  canForceStart = false
+}: {
+  cycleId: string;
+  checklist?: CipDashboardData["checklists"][string];
+  readiness: PlannedCycleReadiness;
+  canForceStart?: boolean;
+}) {
   const checklistRows = [
     ["valves_open", checklistItems[0], checklist?.valves_open ?? false],
     ["cleaning_product_available", checklistItems[1], checklist?.cleaning_product_available ?? false],
@@ -696,7 +898,24 @@ function PlannedCycleStartForm({ cycleId, checklist }: { cycleId: string; checkl
           {item}
         </label>
       ))}
-      <button type="submit" className="min-h-11 rounded-lg bg-formital-green px-4 font-bold text-white transition hover:bg-formital-green-dark">
+      {canForceStart ? (
+        <label className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-100">
+          <input name="force_start" type="checkbox" className="h-4 w-4 rounded border-slate-300 text-formital-green focus:ring-formital-green" />
+          Autoriser le demarrage hors fenetre planifiee
+        </label>
+      ) : null}
+      {readiness.hardBlockers.length > 0 ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-800 dark:border-red-400/30 dark:bg-red-500/10 dark:text-red-100">
+          {readiness.hardBlockers.map((blocker) => (
+            <p key={blocker.message}>{blocker.message}</p>
+          ))}
+        </div>
+      ) : null}
+      <button
+        type="submit"
+        disabled={readiness.hardBlockers.length > 0}
+        className="min-h-11 rounded-lg bg-formital-green px-4 font-bold text-white transition hover:bg-formital-green-dark disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+      >
         Demarrer ce cycle planifie
       </button>
     </form>
@@ -793,29 +1012,43 @@ export function CyclesTable({
   );
 }
 
-export function CyclesWorkspace({ profile, data = fallbackData }: { profile: Profile; data?: CipDashboardData }) {
+export function CyclesWorkspace({
+  profile,
+  data = fallbackData,
+  workflowError
+}: {
+  profile: Profile;
+  data?: CipDashboardData;
+  workflowError?: string;
+}) {
   const inProgress = data.cycles.filter((cycle) => cycle.status === "En cours").length;
   const planned = data.cycles.filter((cycle) => cycle.status === "Planifie").length;
   const nonCompliant = data.cycles.filter((cycle) => cycle.result === "Non conforme").length;
+  const operators = data.users.filter((user) => user[3] === "operator" && user[4] === "Actif");
 
   return (
     <div className="grid gap-6">
+      <WorkflowNotice error={workflowError} />
       <div className="grid gap-4 md:grid-cols-3">
         <KpiCard label="Cycles en cours" value={String(inProgress)} trend="Actif" tone="amber" />
         <KpiCard label="Cycles planifies" value={String(planned)} trend="Base de donnees" tone="blue" />
         <KpiCard label="Cycles non conformes" value={String(nonCompliant)} trend="Controle" tone="red" />
       </div>
-      <CycleExecutionWorkspace profile={profile} data={data} historyHref="/engineer/history" />
+      <CycleExecutionWorkspace profile={profile} data={data} historyHref="/engineer/history" showRecentCycles={false} />
       <SectionCard title="Planifier un cycle CIP">
-        <form action="/api/cip/cycles" method="post" className="grid gap-4 md:grid-cols-[1.2fr_1fr_1fr_auto] md:items-end">
+        <form action="/api/cip/cycles" method="post" className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <label className="grid gap-2 text-sm font-semibold text-slate-700">
             Equipement
             <select name="equipment_id" required className="min-h-11 rounded-lg border border-slate-200 px-3 outline-none focus:border-formital-green">
               <option value="">Selectionner</option>
-              {data.equipments.map((equipment) => (
-                <option key={equipment.id} value={equipment.id}>
-                  {equipment.name}
-                </option>
+              {data.workshops.map((workshop) => (
+                <optgroup key={workshop.id} label={workshop.name}>
+                  {workshop.equipments.map((equipment) => (
+                    <option key={equipment.id} value={equipment.id}>
+                      {equipment.name} - {equipment.status}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </label>
@@ -823,8 +1056,39 @@ export function CyclesWorkspace({ profile, data = fallbackData }: { profile: Pro
             Date planifiee
             <input name="planned_at" type="datetime-local" className="min-h-11 rounded-lg border border-slate-200 px-3 outline-none focus:border-formital-green" />
           </label>
+          <label className="grid gap-2 text-sm font-semibold text-slate-700">
+            Duree cible
+            <input name="planned_duration_minutes" type="number" min="1" defaultValue="45" className="min-h-11 rounded-lg border border-slate-200 px-3 outline-none focus:border-formital-green" />
+          </label>
+          <label className="grid gap-2 text-sm font-semibold text-slate-700">
+            Operateur assigne
+            <select name="operator_id" className="min-h-11 rounded-lg border border-slate-200 px-3 outline-none focus:border-formital-green">
+              <option value="">Non assigne</option>
+              {operators.map(([id, , name]) => (
+                <option key={id} value={id}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="grid gap-2 text-sm font-semibold text-slate-700">
+            Priorite
+            <select name="priority" defaultValue="normal" className="min-h-11 rounded-lg border border-slate-200 px-3 outline-none focus:border-formital-green">
+              <option value="normal">Normale</option>
+              <option value="high">Haute</option>
+              <option value="critical">Critique</option>
+            </select>
+          </label>
+          <label className="grid gap-2 text-sm font-semibold text-slate-700 md:col-span-2">
+            Instructions
+            <input name="instructions" className="min-h-11 rounded-lg border border-slate-200 px-3 outline-none focus:border-formital-green" placeholder="Consignes pour l'operateur" />
+          </label>
+          <label className="grid gap-2 text-sm font-semibold text-slate-700">
+            Observation
+            <input name="observation" className="min-h-11 rounded-lg border border-slate-200 px-3 outline-none focus:border-formital-green" placeholder="Commentaire qualite" />
+          </label>
           <ChecklistPreviewModal />
-          <button className="min-h-11 rounded-lg bg-formital-green px-4 font-bold text-white md:col-span-4">Enregistrer le cycle</button>
+          <button className="min-h-11 rounded-lg bg-formital-green px-4 font-bold text-white md:col-span-2 xl:col-span-4">Enregistrer le cycle</button>
         </form>
       </SectionCard>
     </div>
@@ -869,9 +1133,9 @@ export function EquipmentsWorkspace({ data = fallbackData }: { data?: CipDashboa
         ) : (
           <div className="grid gap-5">
             {data.workshops.map((workshop) => (
-              <article key={workshop.id} className="rounded-lg border border-slate-200 bg-white p-5">
+              <article key={workshop.id} className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white p-5 transition-colors dark:border-[#315941] dark:bg-[#0d1b13]">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-xs font-bold uppercase tracking-wide text-formital-green">Atelier</p>
                     <h3 className="mt-1 text-xl font-bold text-slate-950">{workshop.name}</h3>
                     <p className="mt-1 text-sm text-muted">{workshop.description}</p>
@@ -880,15 +1144,15 @@ export function EquipmentsWorkspace({ data = fallbackData }: { data?: CipDashboa
                   <AddEquipmentModal processId={workshop.id} workshopName={workshop.name} />
                 </div>
                 {workshop.equipments.length === 0 ? (
-                  <div className="mt-4 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-500">
+                  <div className="mt-4 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-500 dark:border-[#315941] dark:bg-[#07170f]">
                     Aucune machine dans cet atelier.
                   </div>
                 ) : (
                   <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                     {workshop.equipments.map((equipment) => (
-                      <article key={equipment.id} className="rounded-lg border border-slate-200 p-4">
+                      <article key={equipment.id} className="min-w-0 overflow-hidden rounded-lg border border-slate-200 p-4 transition-colors dark:border-[#315941]">
                         <div className="flex items-start justify-between gap-3">
-                          <div>
+                          <div className="min-w-0">
                             <h4 className="mt-2 text-lg font-bold text-slate-950">{equipment.name}</h4>
                           </div>
                           <StatusBadge value={equipment.status} />
@@ -965,37 +1229,37 @@ export function AlertsWorkspace({
         ) : (
           <div className="grid gap-3">
             {data.alerts.map((alert: Alert) => (
-              <article key={alert.id} className="flex flex-col gap-3 rounded-lg border border-slate-200 p-4 md:flex-row md:items-center md:justify-between">
-                <div>
+              <article key={alert.id} className="flex min-w-0 flex-col gap-3 rounded-lg border border-slate-200 p-4 transition-colors dark:border-[#315941] md:flex-row md:items-center md:justify-between">
+                <div className="min-w-0">
                   <p className="text-xs font-bold uppercase tracking-wide text-muted">{alert.createdAt}</p>
                   <h3 className="mt-1 font-bold text-slate-950">{alert.title}</h3>
                   <p className="mt-1 text-sm text-muted">{alert.equipment}</p>
                 </div>
-                <div className="flex flex-col gap-2 md:items-end">
-                  <div className="flex items-center gap-2">
+                <div className="flex min-w-0 flex-col gap-2 md:items-end">
+                  <div className="flex flex-wrap items-center gap-2 md:justify-end">
                   <StatusBadge value={alert.severity} />
                   <StatusBadge value={alert.status} />
                   </div>
-                  <div className="flex flex-wrap justify-end gap-2">
+                  <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end md:w-auto">
                     {alert.status === "Active" ? (
                       <form action="/api/cip/alerts/update" method="post">
                         <input type="hidden" name="alert_id" value={alert.id} />
                         <input type="hidden" name="intent" value="acknowledge" />
-                        <button type="submit" className="rounded-lg border border-formital-green px-4 py-2 text-sm font-bold text-formital-green transition hover:bg-formital-green hover:text-white">
+                        <button type="submit" className="min-h-11 w-full rounded-lg border border-formital-green px-4 py-2 text-sm font-bold text-formital-green transition hover:bg-formital-green hover:text-white sm:w-auto">
                           Acquitter
                         </button>
                       </form>
                     ) : null}
                     {canResolve && alert.status !== "Resolue" ? (
-                      <form action="/api/cip/alerts/update" method="post" className="flex flex-wrap gap-2">
+                      <form action="/api/cip/alerts/update" method="post" className="grid w-full min-w-0 gap-2 sm:w-auto sm:grid-cols-[minmax(12rem,1fr)_auto]">
                         <input type="hidden" name="alert_id" value={alert.id} />
                         <input type="hidden" name="intent" value="resolve" />
                         <input
                           name="resolution_comment"
                           placeholder="Commentaire"
-                          className="min-h-10 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-formital-green"
+                          className="min-h-11 min-w-0 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-formital-green"
                         />
-                        <button type="submit" className="rounded-lg bg-formital-green px-4 py-2 text-sm font-bold text-white">
+                        <button type="submit" className="min-h-11 rounded-lg bg-formital-green px-4 py-2 text-sm font-bold text-white">
                           Resoudre
                         </button>
                       </form>
@@ -1022,9 +1286,9 @@ export function InstructionsWorkspace({ data = fallbackData }: { data?: CipDashb
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {data.instructions.map((instruction) => (
-              <article key={instruction.id} className="rounded-lg border border-slate-200 p-4">
+              <article key={instruction.id} className="min-w-0 overflow-hidden rounded-lg border border-slate-200 p-4 transition-colors dark:border-[#315941]">
                 <div className="flex items-start justify-between gap-3">
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-xs font-bold uppercase tracking-wide text-formital-green">{instruction.process}</p>
                     <h3 className="mt-2 text-lg font-bold text-slate-950">{instruction.title}</h3>
                   </div>
@@ -1159,7 +1423,25 @@ export function UsersWorkspace({ data = fallbackData }: { data?: CipDashboardDat
   return (
     <div className="grid gap-6">
       <SectionCard title="Utilisateurs et roles" action="Creer un utilisateur">
-        <div className="overflow-x-auto">
+        <div className="grid gap-3 md:hidden">
+          {data.users.length === 0 ? (
+            <EmptyState>Aucun profil visible dans la base de donnees pour cette session.</EmptyState>
+          ) : (
+            data.users.map(([id, email, name, role, status]) => (
+              <article key={id || email} className="min-w-0 rounded-lg border border-slate-200 p-4 dark:border-[#315941]">
+                <div className="min-w-0">
+                  <p className="truncate font-bold text-slate-950" title={name}>{name}</p>
+                  <p className="mt-1 truncate text-sm font-semibold text-slate-500" title={email}>{email}</p>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <StatusBadge value={role} />
+                  <StatusBadge value={status} />
+                </div>
+              </article>
+            ))
+          )}
+        </div>
+        <div className="responsive-table-shell hidden md:block">
           <table className="w-full min-w-[640px] text-left text-sm">
             <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
               <tr><th className="py-3 pr-4">Email</th><th className="py-3 pr-4">Nom</th><th className="py-3 pr-4">Role</th><th className="py-3 pr-4">Etat</th></tr>
@@ -1172,10 +1454,10 @@ export function UsersWorkspace({ data = fallbackData }: { data?: CipDashboardDat
                   </td>
                 </tr>
               ) : (
-                data.users.map(([email, name, role, status]) => (
-                  <tr key={email}>
-                    <td className="py-3 pr-4 font-semibold">{email}</td>
-                    <td className="py-3 pr-4">{name}</td>
+                data.users.map(([id, email, name, role, status]) => (
+                  <tr key={id || email}>
+                    <td className="max-w-[18rem] truncate py-3 pr-4 font-semibold" title={email}>{email}</td>
+                    <td className="max-w-[16rem] truncate py-3 pr-4" title={name}>{name}</td>
                     <td className="py-3 pr-4"><StatusBadge value={role} /></td>
                     <td className="py-3 pr-4"><StatusBadge value={status} /></td>
                   </tr>
@@ -1198,7 +1480,7 @@ export function SettingsWorkspace({
   operatorCreated?: boolean;
   operatorError?: string;
 }) {
-  const operators = data.users.filter(([, , role]) => role === "operator");
+  const operators = data.users.filter(([, , , role]) => role === "operator");
 
   return (
     <div className="grid gap-6">
@@ -1224,7 +1506,7 @@ export function SettingsWorkspace({
 
       <SectionCard title="Comptes operateurs">
         <div className="grid gap-6 xl:grid-cols-[1fr_0.95fr]">
-          <form action="/api/auth/operators" method="post" className="grid gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <form action="/api/auth/operators" method="post" className="grid min-w-0 gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-[#315941] dark:bg-[#07170f]">
             <div>
               <p className="text-sm font-bold uppercase tracking-wide text-formital-green">Creation securisee</p>
               <p className="mt-1 text-sm font-semibold text-slate-500">
@@ -1291,23 +1573,23 @@ export function SettingsWorkspace({
             </button>
           </form>
 
-          <div className="rounded-lg border border-slate-200 p-4">
+          <div className="min-w-0 overflow-hidden rounded-lg border border-slate-200 p-4 dark:border-[#315941]">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-bold uppercase tracking-wide text-slate-500">Operateurs actifs</p>
-                <p className="text-3xl font-black text-slate-950">{operators.filter(([, , , status]) => status === "Actif").length}</p>
+                <p className="text-3xl font-black text-slate-950">{operators.filter(([, , , , status]) => status === "Actif").length}</p>
               </div>
               <StatusBadge value="Base de donnees" />
             </div>
-            <div className="grid gap-3">
+            <div className="responsive-card-scroll grid max-h-[24rem] gap-3 pr-1">
               {operators.length === 0 ? (
                 <EmptyState>Aucun operateur visible pour cette session.</EmptyState>
               ) : (
-                operators.map(([email, name, role, status]) => (
-                  <div key={email} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 px-4 py-3">
-                    <div>
-                      <p className="font-bold text-slate-950">{name}</p>
-                      <p className="text-sm font-semibold text-slate-500">{email}</p>
+                operators.map(([id, email, name, role, status]) => (
+                  <div key={id || email} className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 px-4 py-3 dark:border-[#315941]">
+                    <div className="min-w-0">
+                      <p className="truncate font-bold text-slate-950" title={name}>{name}</p>
+                      <p className="truncate text-sm font-semibold text-slate-500" title={email}>{email}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <StatusBadge value={role} />

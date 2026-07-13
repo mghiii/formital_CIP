@@ -10,6 +10,7 @@ import type { AppRole, Profile } from "@/types/auth";
 
 type NavItem = {
   label: string;
+  mobileLabel?: string;
   href: string;
   icon: IconName;
   badge?: "alerts";
@@ -19,26 +20,26 @@ type IconName = "home" | "cycle" | "history" | "equipment" | "kpi" | "alert" | "
 
 const navByRole: Record<AppRole, NavItem[]> = {
   operator: [
-    { label: "Tableau de bord", href: "/operator/dashboard", icon: "home" },
+    { label: "Tableau de bord", mobileLabel: "Dashboard", href: "/operator/dashboard", icon: "home" },
     { label: "Cycles CIP", href: "/operator/cycles", icon: "cycle" },
     { label: "Historique", href: "/operator/history", icon: "history" },
-    { label: "Equipements", href: "/operator/equipments", icon: "equipment" },
+    { label: "Equipements", mobileLabel: "Machines", href: "/operator/equipments", icon: "equipment" },
     { label: "Alertes", href: "/operator/alerts", icon: "alert", badge: "alerts" },
     { label: "Instructions CIP", href: "/operator/instructions", icon: "instruction" }
   ],
   engineer: [
-    { label: "Tableau de bord", href: "/engineer/dashboard", icon: "home" },
+    { label: "Tableau de bord", mobileLabel: "Dashboard", href: "/engineer/dashboard", icon: "home" },
     { label: "Cycles CIP", href: "/engineer/cycles", icon: "cycle" },
     { label: "Historique", href: "/engineer/history", icon: "history" },
-    { label: "Equipements", href: "/engineer/equipments", icon: "equipment" },
-    { label: "Indicateurs KPI", href: "/engineer/reports", icon: "kpi" },
+    { label: "Equipements", mobileLabel: "Machines", href: "/engineer/equipments", icon: "equipment" },
+    { label: "Indicateurs KPI", mobileLabel: "KPI", href: "/engineer/reports", icon: "kpi" },
     { label: "Alertes", href: "/engineer/alerts", icon: "alert", badge: "alerts" },
     { label: "Parametres", href: "/engineer/settings", icon: "settings" }
   ],
   admin: [
-    { label: "Tableau de bord", href: "/admin/dashboard", icon: "home" },
+    { label: "Tableau de bord", mobileLabel: "Dashboard", href: "/admin/dashboard", icon: "home" },
     { label: "Cycles CIP", href: "/engineer/cycles", icon: "cycle" },
-    { label: "Equipements", href: "/engineer/equipments", icon: "equipment" },
+    { label: "Equipements", mobileLabel: "Machines", href: "/engineer/equipments", icon: "equipment" },
     { label: "Alertes", href: "/engineer/alerts", icon: "alert", badge: "alerts" },
     { label: "Rapports", href: "/engineer/reports", icon: "report" },
     { label: "Utilisateurs", href: "/admin/users", icon: "users" },
@@ -254,10 +255,11 @@ function SidebarContent({
 
 export function AppShell({ profile, activePath, title, subtitle, children, actions, alertCount = 0 }: AppShellProps) {
   const navItems = navByRole[profile.role];
+  const bottomNavItems = navItems.slice(0, 5);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-[#f5f7f4] text-ink transition-colors dark:bg-[#07120d]">
+    <div className="min-h-dvh bg-[#f5f7f4] text-ink transition-colors dark:bg-[#07120d]">
       <aside className="fixed inset-y-0 left-0 hidden w-72 flex-col bg-formital-green text-white shadow-2xl transition-colors dark:bg-[#0d2f1b] lg:flex">
         <SidebarContent navItems={navItems} activePath={activePath} alertCount={alertCount} />
       </aside>
@@ -282,9 +284,9 @@ export function AppShell({ profile, activePath, title, subtitle, children, actio
         </div>
       ) : null}
       <div className="lg:pl-72">
-        <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur transition-colors dark:border-[#214531] dark:bg-[#0c1811]/95 sm:px-5 lg:px-8">
+        <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur transition-colors dark:border-[#214531] dark:bg-[#0c1811]/95 sm:px-5 lg:px-8 lg:pt-3">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center justify-between gap-3 lg:hidden">
+            <div className="grid grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-3 lg:hidden">
               <button
                 type="button"
                 onClick={() => setSidebarOpen(true)}
@@ -294,10 +296,10 @@ export function AppShell({ profile, activePath, title, subtitle, children, actio
               >
                 <MenuIcon />
               </button>
-              <div className="flex min-w-0 flex-1 justify-center">
+              <div className="flex min-w-0 justify-center">
                 <FormitalLogo compact showText={false} />
               </div>
-              <div className="min-w-0 shrink-0">
+              <div className="min-w-0">
                 <ProfileBadge profile={profile} compact />
               </div>
             </div>
@@ -314,8 +316,32 @@ export function AppShell({ profile, activePath, title, subtitle, children, actio
             {actions ? <div className="flex flex-wrap items-center gap-3 lg:hidden">{actions}</div> : null}
           </div>
         </header>
-        <main className="px-5 py-6 lg:px-8">{children}</main>
+        <main className="mx-auto w-full max-w-[112rem] min-w-0 px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-5 sm:px-5 lg:px-8 lg:pb-8 lg:pt-6">{children}</main>
       </div>
+      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-12px_35px_rgba(15,23,42,0.10)] backdrop-blur dark:border-[#214531] dark:bg-[#0c1811]/95 lg:hidden" aria-label="Navigation principale mobile">
+        <div className="mx-auto grid max-w-2xl grid-cols-5 gap-1">
+          {bottomNavItems.map((item) => {
+            const active = activePath === item.href || activePath.startsWith(`${item.href}/`);
+            const count = item.badge === "alerts" ? alertCount : 0;
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href as Route}
+                className={`relative flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[11px] font-bold transition ${
+                  active
+                    ? "bg-formital-green text-white shadow-sm"
+                    : "text-slate-600 hover:bg-formital-green/10 hover:text-formital-green dark:text-slate-300"
+                }`}
+              >
+                <NavIcon name={item.icon} />
+                <span className="max-w-full whitespace-nowrap">{item.mobileLabel ?? item.label}</span>
+                {count > 0 ? <span className="absolute right-1.5 top-1.5 rounded-full bg-formital-red px-1.5 text-[10px] leading-4 text-white">{count}</span> : null}
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }

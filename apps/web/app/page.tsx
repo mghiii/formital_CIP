@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/session";
-import { getRoleHomePath } from "@/lib/auth/roles";
+import { getDashboardPath, isAppRole } from "@/lib/auth/roles";
 
 export default async function HomePage() {
   const profile = await getCurrentProfile();
@@ -13,5 +13,5 @@ export default async function HomePage() {
     redirect("/inactive");
   }
 
-  redirect(getRoleHomePath(profile.role));
+  redirect(isAppRole(profile.role) ? getDashboardPath(profile.role) : "/unauthorized");
 }

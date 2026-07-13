@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { canAccessPath, getRoleHomePath } from "@/lib/auth/roles";
+import { canAccessPath, getDashboardPath, isAppRole } from "@/lib/auth/roles";
 import { getPublicSupabaseConfig } from "@/lib/supabase/config";
 import type { Profile } from "@/types/auth";
 
@@ -39,6 +39,10 @@ export async function requireProfile(pathname: string): Promise<Profile> {
     redirect("/inactive");
   }
 
+  if (!isAppRole(profile.role)) {
+    redirect("/unauthorized");
+  }
+
   if (!canAccessPath(profile, pathname)) {
     redirect("/unauthorized");
   }
@@ -50,6 +54,6 @@ export async function redirectAuthenticatedUser() {
   const profile = await getCurrentProfile();
 
   if (profile?.is_active) {
-    redirect(getRoleHomePath(profile.role));
+    redirect(isAppRole(profile.role) ? getDashboardPath(profile.role) : "/unauthorized");
   }
 }

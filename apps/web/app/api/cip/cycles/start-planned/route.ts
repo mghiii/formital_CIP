@@ -1,49 +1,43 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getRouteAuthContext } from "@/lib/auth/api";
-import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { getRouteAuthContext, isPrivilegedProfile } from "@/lib/auth/api";
+import { getSafeReturnPath, toAppUrl } from "@/lib/auth/redirects";
 
 function checked(formData: FormData, name: string) {
   return formData.get(name) === "on";
 }
 
-function redirectAfterPost(url: URL) {
-  return NextResponse.redirect(url, { status: 303 });
+function redirectAfterPost(request: NextRequest, path: string) {
+  return NextResponse.redirect(toAppUrl(request, path), { status: 303 });
+}
+
+function encodeWorkflowError(result: unknown) {
+  if (!result || typeof result !== "object") {
+    return "cycle-start";
+  }
+
+  const payload = result as { code?: unknown };
+  return String(payload.code ?? "cycle-start").toLowerCase().replaceAll("_", "-");
 }
 
 export async function GET(request: NextRequest) {
-  return NextResponse.redirect(new URL("/operator/dashboard?error=use-cycle-form", request.url), { status: 303 });
+  return redirectAfterPost(request, "/operator/dashboard?error=use-cycle-form");
 }
 
 export async function POST(request: NextRequest) {
   const context = await getRouteAuthContext();
   const formData = await request.formData();
   const cycleId = String(formData.get("cycle_id") ?? "");
-  const returnTo = request.headers.get("referer") ?? "/operator/dashboard";
-  const cleanReturnTo = returnTo.split("?")[0];
+  const cleanReturnTo = getSafeReturnPath(request, "/operator/dashboard");
 
   if (!cycleId) {
-    return redirectAfterPost(new URL(`${cleanReturnTo}?error=missing-cycle`, request.url));
+    return redirectAfterPost(request, `${cleanReturnTo}?error=missing-cycle`);
   }
 
   if (!context) {
-    return redirectAfterPost(new URL("/login", request.url));
+    return redirectAfterPost(request, "/login");
   }
 
-  const { supabase, user } = context;
-  const db = createAdminSupabaseClient() ?? supabase;
-
-  const { data: plannedCycle } = await db
-    .from("cip_cycles")
-    .select("id, equipment_id, status, equipments(status, is_active)")
-    .eq("id", cycleId)
-    .eq("status", "draft")
-    .single();
-
-  const equipment = Array.isArray(plannedCycle?.equipments) ? plannedCycle?.equipments[0] : plannedCycle?.equipments;
-
-  if (!plannedCycle?.id || equipment?.is_active === false || ["cleaning", "in_cleaning", "out_of_service"].includes(String(equipment?.status ?? ""))) {
-    return redirectAfterPost(new URL(`${cleanReturnTo}?error=cycle-unavailable`, request.url));
-  }
+  const { supabase, profile } = context;
 
   const checklist = {
     cycle_id: cycleId,
@@ -64,32 +58,29 @@ export async function POST(request: NextRequest) {
   ].every(Boolean);
 
   if (!allValidated) {
-    return redirectAfterPost(new URL(`${cleanReturnTo}?error=checklist-incomplete`, request.url));
+    return redirectAfterPost(request, `${cleanReturnTo}?error=checklist-incomplete`);
   }
 
-  const { error: checklistError } = await db.from("cip_checklists").upsert(checklist, {
+  const { error: checklistError } = await supabase.from("cip_checklists").upsert(checklist, {
     onConflict: "cycle_id"
   });
 
   if (checklistError) {
-    return redirectAfterPost(new URL(`${cleanReturnTo}?error=checklist-save`, request.url));
+    return redirectAfterPost(request, `${cleanReturnTo}?error=checklist-save`);
   }
 
-  const { data: cycle, error: cycleError } = await db
-    .from("cip_cycles")
-    .update({
-      operator_id: user.id,
-      status: "in_progress",
-      started_at: new Date().toISOString()
-    })
-    .eq("id", cycleId)
-    .eq("status", "draft")
-    .select("id")
-    .single();
+  const forceStart = formData.get("force_start") === "on" && isPrivilegedProfile(profile);
+  const { data: startResult, error: rpcError } = await supabase.rpc("start_planned_cip_cycle", {
+    p_cycle_id: cycleId,
+    p_force: forceStart
+  });
 
-  if (cycleError || !cycle?.id) {
-    return redirectAfterPost(new URL(`${cleanReturnTo}?error=cycle-start`, request.url));
+  const result = startResult as { ok?: boolean; message?: string } | null;
+
+  if (rpcError || result?.ok !== true) {
+    const code = rpcError ? "cycle-start" : encodeWorkflowError(result);
+    return redirectAfterPost(request, `${cleanReturnTo}?error=${code}`);
   }
 
-  return redirectAfterPost(new URL(`${cleanReturnTo}?started=planned-cycle`, request.url));
+  return redirectAfterPost(request, `${cleanReturnTo}?started=planned-cycle`);
 }

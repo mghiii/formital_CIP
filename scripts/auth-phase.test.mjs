@@ -12,14 +12,18 @@ describe("phase Authentification et roles", () => {
     assert.equal(roles.includes('operator: "/operator/dashboard"'), true);
     assert.equal(roles.includes('engineer: "/engineer/dashboard"'), true);
     assert.equal(roles.includes('admin: "/admin/dashboard"'), true);
+    assert.match(roles, /function getDashboardPath/);
   });
 
   it("encode les autorisations attendues par role", () => {
     const roles = read("apps/web/lib/auth/roles.ts");
     assert.equal(roles.includes('pathname.startsWith("/admin")'), true);
-    assert.equal(roles.includes('return profile.role === "admin";'), true);
-    assert.equal(roles.includes('profile.role === "engineer" || profile.role === "admin"'), true);
-    assert.equal(roles.includes('profile.role === "operator" || profile.role === "engineer" || profile.role === "admin"'), true);
+    assert.equal(roles.includes('return role === "admin";'), true);
+    assert.equal(roles.includes('pathname.startsWith("/engineer")'), true);
+    assert.equal(roles.includes('return role === "engineer";'), true);
+    assert.equal(roles.includes('pathname.startsWith("/operator")'), true);
+    assert.equal(roles.includes('return role === "operator";'), true);
+    assert.equal(roles.includes("isAppRole"), true);
   });
 
   it("protege les routes et les comptes inactifs", () => {
@@ -29,7 +33,38 @@ describe("phase Authentification et roles", () => {
     assert.match(middleware, /canAccessPath/);
     assert.equal(middleware.includes("/inactive"), true);
     assert.equal(middleware.includes("/unauthorized"), true);
+    assert.equal(middleware.includes("/setup"), true);
     assert.equal(homePage.includes('redirect("/login")'), true);
+  });
+
+  it("securise les redirections Render et le logout", () => {
+    const redirects = read("apps/web/lib/auth/redirects.ts");
+    const logout = read("apps/web/app/auth/logout/route.ts");
+    const callback = read("apps/web/app/auth/callback/route.ts");
+    const middleware = read("apps/web/middleware.ts");
+
+    assert.equal(redirects.includes('"0.0.0.0"'), true);
+    assert.match(redirects, /NEXT_PUBLIC_APP_URL/);
+    assert.match(redirects, /APP_URL/);
+    assert.match(logout, /supabase\.auth\.signOut\(\)/);
+    assert.match(logout, /response\.cookies\.set/);
+    assert.match(logout, /redirectToAppPath\(request, "\/login", 303\)/);
+    assert.equal(logout.includes('new URL("/login", request.url)'), false);
+    assert.equal(callback.includes("cookieWrites"), true);
+    assert.equal(callback.includes("getDashboardPath"), true);
+    assert.equal(middleware.includes('toAppUrl(request, "/login")'), true);
+  });
+
+  it("refuse les profils invalides et ne force pas operator par defaut", () => {
+    const bootstrap = read("apps/web/app/api/auth/profile-bootstrap/route.ts");
+    const login = read("apps/web/components/auth/LoginForm.tsx");
+    const session = read("apps/web/lib/auth/session.ts");
+
+    assert.match(bootstrap, /return null/);
+    assert.equal(bootstrap.includes('return "operator";\n}'), false);
+    assert.match(bootstrap, /Profil manquant/);
+    assert.match(login, /router\.replace\("\/unauthorized"\)/);
+    assert.match(session, /redirect\("\/unauthorized"\)/);
   });
 
   it("n'expose pas la service role dans le frontend", () => {

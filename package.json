@@ -8,6 +8,7 @@
     "build": "node scripts/validate-auth-phase.mjs",
     "test": "node --test scripts/*.test.mjs",
     "lint": "node scripts/validate-auth-phase.mjs --lint",
+    "cip:audit": "node scripts/audit-cip-data.mjs",
     "users:create": "node scripts/create-auth-users.mjs"
   },
   "packageManager": "pnpm@11.7.0",

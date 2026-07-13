@@ -53,11 +53,11 @@ for (const snippet of ['operator: "/operator/dashboard"', 'engineer: "/engineer/
 
 for (const snippet of [
   'pathname.startsWith("/admin")',
-  'profile.role === "admin"',
+  'role === "admin"',
   'pathname.startsWith("/engineer")',
-  'profile.role === "engineer" || profile.role === "admin"',
+  'role === "engineer"',
   'pathname.startsWith("/operator")',
-  'profile.role === "operator" || profile.role === "engineer" || profile.role === "admin"'
+  'role === "operator"'
 ]) {
   if (!roles.includes(snippet)) {
     failures.push(`Controle d'acces role incomplet: ${snippet}`);
@@ -76,16 +76,40 @@ if (webSources.includes("SERVICE_ROLE") || webSources.includes("SUPABASE_SERVICE
 }
 
 const middleware = read("apps/web/middleware.ts");
-for (const snippet of ["/inactive", "/unauthorized", "isProtectedPath", "canAccessPath"]) {
+for (const snippet of ["/inactive", "/unauthorized", "/setup", "isProtectedPath", "canAccessPath", 'toAppUrl(request, "/login")']) {
   if (!middleware.includes(snippet)) {
     failures.push(`Middleware de protection incomplet: ${snippet}`);
   }
 }
 
 const callback = read("apps/web/app/auth/callback/route.ts");
-for (const snippet of ["exchangeCodeForSession", "profiles", "getRoleHomePath", "/inactive"]) {
+for (const snippet of ["exchangeCodeForSession", "profiles", "getDashboardPath", "/inactive", "cookieWrites"]) {
   if (!callback.includes(snippet)) {
     failures.push(`Callback auth incomplet: ${snippet}`);
+  }
+}
+
+const logout = read("apps/web/app/auth/logout/route.ts");
+for (const snippet of ["supabase.auth.signOut()", 'redirectToAppPath(request, "/login", 303)', "response.cookies.set"]) {
+  if (!logout.includes(snippet)) {
+    failures.push(`Logout auth incomplet: ${snippet}`);
+  }
+}
+
+const redirects = read("apps/web/lib/auth/redirects.ts");
+for (const snippet of ["0.0.0.0", "NEXT_PUBLIC_APP_URL", "APP_URL", "getPublicRequestOrigin"]) {
+  if (!redirects.includes(snippet)) {
+    failures.push(`Redirection publique incomplete: ${snippet}`);
+  }
+}
+
+for (const file of [
+  "apps/web/app/auth/logout/route.ts",
+  "apps/web/app/auth/callback/route.ts",
+  "apps/web/middleware.ts"
+]) {
+  if (read(file).includes('new URL("/login", request.url)')) {
+    failures.push(`Redirection login dependante de request.url: ${file}`);
   }
 }
 

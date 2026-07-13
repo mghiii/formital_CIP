@@ -28,7 +28,7 @@ export function CycleTimer({ cycle }: CycleTimerProps) {
 
   useEffect(() => {
     setNow(Date.now());
-    if (!cycleStatus || !["En cours", "Planifie"].includes(cycleStatus)) return undefined;
+    if (cycleStatus !== "En cours") return undefined;
     const interval = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(interval);
   }, [cycleStatus]);
@@ -43,7 +43,7 @@ export function CycleTimer({ cycle }: CycleTimerProps) {
   const targetSeconds = Math.max((cycle?.targetDurationMinutes ?? 45) * 60, 60);
   const remainingSeconds = Math.max(targetSeconds - elapsedSeconds, 0);
   const progress = Math.min(100, Math.round((elapsedSeconds / targetSeconds) * 100));
-  const isRunning = cycle ? ["En cours", "Planifie"].includes(cycle.status) : false;
+  const isRunning = cycle?.status === "En cours";
   const showLiveValues = cycle ? cycle.status === "Termine" || now !== null : false;
 
   return (

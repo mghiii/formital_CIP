@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { canAccessPath, getRoleHomePath, isProtectedPath } from "@/lib/auth/roles";
+import { canAccessPath, getDashboardPath, isAppRole, isProtectedPath } from "@/lib/auth/roles";
+import { redirectToAppPath, toAppUrl } from "@/lib/auth/redirects";
 import { getPublicSupabaseConfig } from "@/lib/supabase/config";
 import type { SupabaseCookieOptions } from "@/lib/supabase/cookies";
 import type { Profile } from "@/types/auth";
@@ -12,7 +13,7 @@ export async function middleware(request: NextRequest) {
 
   if (!config.isConfigured) {
     if (pathname !== "/setup") {
-      return NextResponse.redirect(new URL("/setup", request.url));
+      return redirectToAppPath(request, "/setup");
     }
 
     return response;
@@ -41,8 +42,7 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (!user && isProtectedPath(pathname)) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
+    const url = toAppUrl(request, "/login");
     url.searchParams.set("next", pathname);
     return NextResponse.redirect(url);
   }
@@ -55,21 +55,29 @@ export async function middleware(request: NextRequest) {
   const profile = data as Profile | null;
 
   if ((pathname === "/" || pathname === "/login") && profile?.is_active) {
-    return NextResponse.redirect(new URL(getRoleHomePath(profile.role), request.url));
+    return redirectToAppPath(request, getDashboardPath(profile.role));
   }
 
   if (isProtectedPath(pathname)) {
     if (!profile) {
-      return NextResponse.redirect(new URL("/login", request.url));
+      console.error(`[auth] Profil manquant pour l'utilisateur ${user.id}.`);
+      return redirectToAppPath(request, "/setup");
     }
 
     if (!profile.is_active) {
-      return NextResponse.redirect(new URL("/inactive", request.url));
+      return redirectToAppPath(request, "/inactive");
+    }
+
+    if (!isAppRole(profile.role)) {
+      console.error(`[auth] Role invalide pour l'utilisateur ${user.id}: ${String(profile.role)}`);
+      return redirectToAppPath(request, "/unauthorized");
     }
 
     if (!canAccessPath(profile, pathname)) {
-      return NextResponse.redirect(new URL("/unauthorized", request.url));
+      return redirectToAppPath(request, "/unauthorized");
     }
+
+    response.headers.set("Cache-Control", "no-store, max-age=0");
   }
 
   return response;

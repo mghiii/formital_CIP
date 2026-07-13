@@ -1,16 +1,20 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getRouteAuthContext } from "@/lib/auth/api";
+import { getSafeReturnPath, toAppUrl } from "@/lib/auth/redirects";
 
 function checked(formData: FormData, name: string) {
   return formData.get(name) === "on";
+}
+
+function workflowErrorCode(code?: string) {
+  return (code ?? "cycle-start").toLowerCase().replaceAll("_", "-");
 }
 
 export async function POST(request: NextRequest) {
   const context = await getRouteAuthContext();
   const formData = await request.formData();
   const equipmentId = String(formData.get("equipment_id") ?? "");
-  const returnTo = request.headers.get("referer") ?? "/operator/dashboard";
-  const cleanReturnTo = returnTo.split("?")[0];
+  const cleanReturnTo = getSafeReturnPath(request, "/operator/dashboard");
 
   const checklist = {
     valves_open: checked(formData, "valves_open"),
@@ -23,15 +27,15 @@ export async function POST(request: NextRequest) {
   const allValidated = Object.values(checklist).every(Boolean);
 
   if (!equipmentId) {
-    return NextResponse.redirect(new URL(`${cleanReturnTo}?error=missing-equipment`, request.url));
+    return NextResponse.redirect(toAppUrl(request, `${cleanReturnTo}?error=missing-equipment`));
   }
 
   if (!allValidated) {
-    return NextResponse.redirect(new URL(`${cleanReturnTo}?error=checklist-incomplete`, request.url));
+    return NextResponse.redirect(toAppUrl(request, `${cleanReturnTo}?error=checklist-incomplete`));
   }
 
   if (!context) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return NextResponse.redirect(toAppUrl(request, "/login"));
   }
 
   const { supabase, user } = context;
@@ -43,23 +47,23 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (equipmentError || !equipment?.process_id || equipment.is_active === false) {
-    return NextResponse.redirect(new URL(`${cleanReturnTo}?error=equipment-process`, request.url));
+    return NextResponse.redirect(toAppUrl(request, `${cleanReturnTo}?error=equipment-process`));
   }
 
   if (["cleaning", "in_cleaning", "out_of_service"].includes(String(equipment.status))) {
-    return NextResponse.redirect(new URL(`${cleanReturnTo}?error=equipment-unavailable`, request.url));
+    return NextResponse.redirect(toAppUrl(request, `${cleanReturnTo}?error=equipment-unavailable`));
   }
 
   const { data: activeCycle } = await supabase
     .from("cip_cycles")
     .select("id")
     .eq("equipment_id", equipment.id)
-    .in("status", ["draft", "in_progress"])
+    .in("status", ["in_progress", "running"])
     .limit(1)
     .maybeSingle();
 
   if (activeCycle?.id) {
-    return NextResponse.redirect(new URL(`${cleanReturnTo}?error=equipment-has-active-cycle`, request.url));
+    return NextResponse.redirect(toAppUrl(request, `${cleanReturnTo}?error=equipment-has-active-cycle`));
   }
 
   const { data: cycle, error: cycleError } = await supabase
@@ -68,37 +72,39 @@ export async function POST(request: NextRequest) {
       operator_id: user.id,
       equipment_id: equipment.id,
       process_id: equipment.process_id,
-      status: "draft",
-      started_at: new Date().toISOString()
+      status: "planned",
+      started_at: new Date().toISOString(),
+      planned_start_time: new Date().toISOString(),
+      planned_duration_minutes: 45
     })
     .select("id")
     .single();
 
   if (cycleError || !cycle?.id) {
-    return NextResponse.redirect(new URL(`${cleanReturnTo}?error=cycle-create`, request.url));
+    return NextResponse.redirect(toAppUrl(request, `${cleanReturnTo}?error=cycle-create`));
   }
 
-  const { error: checklistError } = await supabase.from("cip_checklists").insert({
+  const { error: checklistError } = await supabase.from("cip_checklists").upsert({
     cycle_id: cycle.id,
     ...checklist,
     validated_at: new Date().toISOString()
+  }, {
+    onConflict: "cycle_id"
   });
 
   if (checklistError) {
-    return NextResponse.redirect(new URL(`${cleanReturnTo}?error=checklist-create`, request.url));
+    return NextResponse.redirect(toAppUrl(request, `${cleanReturnTo}?error=checklist-create`));
   }
 
-  const { error: startError } = await supabase
-    .from("cip_cycles")
-    .update({
-      status: "in_progress",
-      started_at: new Date().toISOString()
-    })
-    .eq("id", cycle.id);
+  const { data: startResult, error: startError } = await supabase.rpc("start_planned_cip_cycle", {
+    p_cycle_id: cycle.id,
+    p_force: false
+  });
 
-  if (startError) {
-    return NextResponse.redirect(new URL(`${cleanReturnTo}?error=cycle-start`, request.url));
+  const result = startResult as { ok?: boolean; code?: string } | null;
+  if (startError || result?.ok !== true) {
+    return NextResponse.redirect(toAppUrl(request, `${cleanReturnTo}?error=${encodeURIComponent(workflowErrorCode(result?.code))}`));
   }
 
-  return NextResponse.redirect(new URL(`${cleanReturnTo}?started=cycle`, request.url));
+  return NextResponse.redirect(toAppUrl(request, `${cleanReturnTo}?started=cycle`));
 }

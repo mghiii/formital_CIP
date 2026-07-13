@@ -26,8 +26,10 @@ describe("coherence cycles CIP", () => {
     const complete = read("apps/web/app/api/cip/cycles/complete/route.ts");
     assert.match(checklist, /canEditCycle/);
     assert.match(checklist, /cycle\?\.operator_id === user\.id/);
+    assert.match(checklist, /start_planned_cip_cycle/);
     assert.match(complete, /existingCycle\.operator_id !== user\.id/);
     assert.match(complete, /cycle-already-closed/);
+    assert.match(complete, /cycle-not-running/);
   });
 
   it("enregistre les parametres et utilise une action anomalie valide", () => {
@@ -40,11 +42,40 @@ describe("coherence cycles CIP", () => {
   });
 
   it("renforce les garanties SQL non destructives", () => {
-    const migration = read("supabase/migrations/20260713000100_cycle_consistency_guards.sql");
+    const migration = read("supabase/migrations/20260713000500_planned_cycle_workflow.sql");
     assert.match(migration, /cip_cycles_one_running_per_equipment_idx/);
-    assert.match(migration, /where status = 'in_progress'/);
-    assert.match(migration, /add column if not exists unit text/);
+    assert.match(migration, /where status in \('in_progress', 'running'\)/);
+    assert.match(migration, /start_planned_cip_cycle/);
+    assert.match(migration, /for update/);
     assert.match(migration, /Equipment % already has a running CIP cycle/);
+    assert.match(migration, /Invalid CIP cycle status transition/);
+    assert.match(migration, /old_status = 'planned' and new_status not in \('ready', 'running', 'cancelled'\)/);
+  });
+
+  it("centralise le demarrage des cycles CIP avec une RPC transactionnelle", () => {
+    const startRoute = read("apps/web/app/api/cip/cycles/start/route.ts");
+    const startPlannedRoute = read("apps/web/app/api/cip/cycles/start-planned/route.ts");
+    const migration = read("supabase/migrations/20260713000500_planned_cycle_workflow.sql");
+    const timer = read("apps/web/components/app/CycleTimer.tsx");
+
+    assert.match(startRoute, /status: "planned"/);
+    assert.match(startRoute, /start_planned_cip_cycle/);
+    assert.match(startPlannedRoute, /start_planned_cip_cycle/);
+    assert.doesNotMatch(startPlannedRoute, /status:\s*"in_progress"/);
+    assert.match(migration, /operator_id = coalesce\(cycle_row\.operator_id, actor_id\)/);
+    assert.match(migration, /launch_window interval := interval '30 minutes'/);
+    assert.match(migration, /where id = cycle_row\.id\s+and status in \('draft', 'planned', 'ready'\)/);
+    assert.match(timer, /cycleStatus !== "En cours"/);
+  });
+
+  it("affiche toujours une raison avant de bloquer un cycle planifie", () => {
+    const views = read("apps/web/components/app/CipViews.tsx");
+    assert.match(views, /getPlannedCycleReadiness/);
+    assert.match(views, /Cycle bloque/);
+    assert.match(views, /Checklist a valider avant le demarrage/);
+    assert.match(views, /Cette machine est deja en nettoyage/);
+    assert.match(views, /Ce cycle est assigne a un autre operateur/);
+    assert.match(views, /readiness\.hardBlockers\.length > 0/);
   });
 
   it("aligne le statut equipement cleaning avec compatibilite ancienne valeur", () => {

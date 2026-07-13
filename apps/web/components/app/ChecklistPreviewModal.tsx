@@ -24,8 +24,8 @@ export function ChecklistPreviewModal() {
       </div>
 
       {open ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 px-4 py-6 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="checklist-preview-title">
-          <div className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-[#315941] dark:bg-[#0d1b13]">
+        <div className="fixed inset-0 z-50 grid place-items-end bg-slate-950/60 px-0 py-0 backdrop-blur-sm sm:place-items-center sm:px-4 sm:py-6" role="dialog" aria-modal="true" aria-labelledby="checklist-preview-title">
+          <div className="max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-t-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-[#315941] dark:bg-[#0d1b13] sm:rounded-2xl sm:p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-bold uppercase tracking-wide text-formital-green">Checklist CIP</p>

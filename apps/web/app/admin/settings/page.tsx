@@ -9,7 +9,7 @@ export default async function AdminSettingsPage() {
 
   return (
     <AppShell profile={profile} activePath="/admin/settings" title="Parametres systeme" subtitle="Securite, seuils et configuration de la plateforme" alertCount={data.metrics.activeAlerts}>
-      <SettingsWorkspace />
+      <SettingsWorkspace data={data} />
     </AppShell>
   );
 }

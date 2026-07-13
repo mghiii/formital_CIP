@@ -7,6 +7,11 @@ export type CipCycle = {
   date: string;
   startedAt?: string;
   endedAt?: string | null;
+  plannedAt?: string;
+  rawStatus?: string;
+  operatorId?: string | null;
+  priority?: string;
+  instructions?: string;
   equipment: string;
   process: string;
   status: CycleStatus;

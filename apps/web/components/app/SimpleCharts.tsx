@@ -24,7 +24,7 @@ export function MiniLineChart({ values }: { values: number[] }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
-      <svg viewBox="0 0 1000 360" className="min-h-[20rem] w-full flex-1 overflow-visible" role="img" aria-label="Cycles par jour">
+      <svg viewBox="0 0 1000 360" className="min-h-[16rem] w-full flex-1 overflow-visible sm:min-h-[20rem]" role="img" aria-label="Cycles par jour">
         <defs>
           <linearGradient id="cycle-line-fill" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0%" stopColor="#1f7a3a" stopOpacity="0.22" />
@@ -130,7 +130,7 @@ export function ConsumptionBars({ values, altValues }: BarsProps) {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
-      <div className="relative min-h-[20rem] flex-1 rounded-lg border border-slate-200 bg-slate-50 px-4 pb-10 pt-5 dark:border-[#315941] dark:bg-[#07170f]">
+      <div className="relative min-h-[16rem] flex-1 rounded-lg border border-slate-200 bg-slate-50 px-4 pb-10 pt-5 dark:border-[#315941] dark:bg-[#07170f] sm:min-h-[20rem]">
         <div className="absolute inset-x-4 top-5 h-[calc(100%-4.5rem)]">
           {[0, 1, 2, 3].map((line) => (
             <div key={line} className="absolute left-0 right-0 border-t border-slate-200 dark:border-[#315941]" style={{ bottom: `${line * 33.33}%` }} />
@@ -185,7 +185,7 @@ function ConsumptionLegend({ water, detergent }: { water: number; detergent: num
 
 function EmptyChart({ label }: { label: string }) {
   return (
-    <div className="grid min-h-64 flex-1 place-items-center rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-sm font-semibold text-slate-500">
+    <div className="grid min-h-40 flex-1 place-items-center rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-sm font-semibold text-slate-500 sm:min-h-56">
       {label}
     </div>
   );

@@ -71,7 +71,7 @@ export function CycleDetailsTable({ cycles, checklists = {}, allowDelete = false
 
   return (
     <>
-      <div className="grid max-h-[34rem] min-h-0 flex-1 content-start gap-3 overflow-y-auto pr-1 md:hidden">
+      <div className="responsive-card-scroll grid max-h-[30rem] flex-1 content-start gap-3 pr-1 md:hidden">
         {cycles.length === 0 ? (
           <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-5 text-center text-sm font-semibold text-slate-500 dark:border-[#315941] dark:bg-[#0b1d13]">
             Aucun cycle CIP enregistre dans la base de donnees.
@@ -124,7 +124,7 @@ export function CycleDetailsTable({ cycles, checklists = {}, allowDelete = false
         )}
       </div>
 
-      <div className="hidden max-h-[34rem] min-h-0 flex-1 overflow-auto md:block">
+      <div className="responsive-table-shell hidden max-h-[28rem] flex-1 md:block">
         <table className="w-full min-w-[760px] text-left text-sm">
           <thead className="sticky top-0 z-10 border-b border-slate-200 bg-white text-xs uppercase tracking-wide text-slate-500 dark:border-[#315941] dark:bg-[#0d1b13]">
             <tr>
@@ -160,13 +160,13 @@ export function CycleDetailsTable({ cycles, checklists = {}, allowDelete = false
                   }}
                   aria-label={`Afficher les details du cycle ${cycle.equipment}`}
                 >
-                  <td className="py-3 pr-4 font-medium">{cycle.date}</td>
-                  <td className="py-3 pr-4">{cycle.equipment}</td>
-                  <td className="py-3 pr-4">{cycle.process}</td>
-                  <td className="py-3 pr-4">{formatCycleDuration(cycle.duration)}</td>
+                  <td className="py-3 pr-4 font-medium whitespace-nowrap">{cycle.date}</td>
+                  <td className="py-3 pr-4 max-w-[12rem] truncate" title={cycle.equipment}>{cycle.equipment}</td>
+                  <td className="py-3 pr-4 max-w-[12rem] truncate" title={cycle.process}>{cycle.process}</td>
+                  <td className="py-3 pr-4 whitespace-nowrap">{formatCycleDuration(cycle.duration)}</td>
                   <td className="py-3 pr-4"><StatusBadge value={cycle.status} /></td>
                   <td className="py-3 pr-4"><StatusBadge value={cycle.result} /></td>
-                  <td className="py-3 pr-4">{cycle.operator}</td>
+                  <td className="py-3 pr-4 max-w-[11rem] truncate" title={cycle.operator}>{cycle.operator}</td>
                   {allowDelete ? (
                     <td className="py-3 pr-4 text-right" onClick={(event) => event.stopPropagation()}>
                       <form
@@ -193,8 +193,8 @@ export function CycleDetailsTable({ cycles, checklists = {}, allowDelete = false
       </div>
 
       {selectedCycle ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 px-4 py-6 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="cycle-details-title">
-          <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-[#315941] dark:bg-[#0d1b13]">
+        <div className="fixed inset-0 z-50 grid place-items-end bg-slate-950/60 px-0 py-0 backdrop-blur-sm sm:place-items-center sm:px-4 sm:py-6" role="dialog" aria-modal="true" aria-labelledby="cycle-details-title">
+          <div className="max-h-[92dvh] w-full max-w-5xl overflow-y-auto rounded-t-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-[#315941] dark:bg-[#0d1b13] sm:rounded-2xl sm:p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-bold uppercase tracking-wide text-formital-green">Details cycle CIP</p>

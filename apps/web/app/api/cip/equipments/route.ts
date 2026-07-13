@@ -1,24 +1,24 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getRouteAuthContext, isPrivilegedProfile } from "@/lib/auth/api";
+import { getSafeReturnPath, toAppUrl } from "@/lib/auth/redirects";
 
 export async function POST(request: NextRequest) {
   const context = await getRouteAuthContext();
   const formData = await request.formData();
   const processId = String(formData.get("process_id") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
-  const returnTo = request.headers.get("referer") ?? "/engineer/equipments";
-  const cleanReturnTo = returnTo.split("?")[0];
+  const cleanReturnTo = getSafeReturnPath(request, "/engineer/equipments");
 
   if (!processId || !name) {
-    return NextResponse.redirect(new URL(`${cleanReturnTo}?error=missing-equipment-fields`, request.url));
+    return NextResponse.redirect(toAppUrl(request, `${cleanReturnTo}?error=missing-equipment-fields`));
   }
 
   if (!context) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return NextResponse.redirect(toAppUrl(request, "/login"));
   }
 
   if (!isPrivilegedProfile(context.profile)) {
-    return NextResponse.redirect(new URL("/unauthorized", request.url));
+    return NextResponse.redirect(toAppUrl(request, "/unauthorized"));
   }
 
   const { supabase } = context;
@@ -30,8 +30,8 @@ export async function POST(request: NextRequest) {
   });
 
   if (error) {
-    return NextResponse.redirect(new URL(`${cleanReturnTo}?error=equipment-create`, request.url));
+    return NextResponse.redirect(toAppUrl(request, `${cleanReturnTo}?error=equipment-create`));
   }
 
-  return NextResponse.redirect(new URL(`${cleanReturnTo}?created=equipment`, request.url));
+  return NextResponse.redirect(toAppUrl(request, `${cleanReturnTo}?created=equipment`));
 }

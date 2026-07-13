@@ -1,9 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getRouteAuthContext, isPrivilegedProfile } from "@/lib/auth/api";
+import { getSafeReturnPath, toAppUrl } from "@/lib/auth/redirects";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
-function redirectAfterPost(url: URL) {
-  return NextResponse.redirect(url, { status: 303 });
+function redirectAfterPost(request: NextRequest, path: string) {
+  return NextResponse.redirect(toAppUrl(request, path), { status: 303 });
 }
 
 function schemaFallbackAllowed(message?: string) {
@@ -11,7 +12,7 @@ function schemaFallbackAllowed(message?: string) {
 }
 
 export async function GET(request: NextRequest) {
-  return redirectAfterPost(new URL("/operator/alerts?error=use-alert-form", request.url));
+  return redirectAfterPost(request, "/operator/alerts?error=use-alert-form");
 }
 
 export async function POST(request: NextRequest) {
@@ -20,15 +21,14 @@ export async function POST(request: NextRequest) {
   const alertId = String(formData.get("alert_id") ?? "");
   const intent = String(formData.get("intent") ?? "");
   const resolutionComment = String(formData.get("resolution_comment") ?? "").trim();
-  const returnTo = request.headers.get("referer") ?? "/operator/alerts";
-  const cleanReturnTo = returnTo.split("?")[0];
+  const cleanReturnTo = getSafeReturnPath(request, "/operator/alerts");
 
   if (!context) {
-    return redirectAfterPost(new URL("/login", request.url));
+    return redirectAfterPost(request, "/login");
   }
 
   if (!alertId || !["acknowledge", "resolve"].includes(intent)) {
-    return redirectAfterPost(new URL(`${cleanReturnTo}?error=alert-fields`, request.url));
+    return redirectAfterPost(request, `${cleanReturnTo}?error=alert-fields`);
   }
 
   const { supabase, user, profile } = context;
@@ -42,11 +42,11 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (!alert?.id || (!isPrivileged && alert.operator_id !== user.id)) {
-    return redirectAfterPost(new URL("/unauthorized", request.url));
+    return redirectAfterPost(request, "/unauthorized");
   }
 
   if (intent === "resolve" && !isPrivileged) {
-    return redirectAfterPost(new URL("/unauthorized", request.url));
+    return redirectAfterPost(request, "/unauthorized");
   }
 
   const resolvedAt = new Date().toISOString();
@@ -78,8 +78,8 @@ export async function POST(request: NextRequest) {
   }
 
   if (error) {
-    return redirectAfterPost(new URL(`${cleanReturnTo}?error=alert-update`, request.url));
+    return redirectAfterPost(request, `${cleanReturnTo}?error=alert-update`);
   }
 
-  return redirectAfterPost(new URL(`${cleanReturnTo}?updated=alert`, request.url));
+  return redirectAfterPost(request, `${cleanReturnTo}?updated=alert`);
 }

@@ -20,8 +20,8 @@ export function AddEquipmentModal({ processId, workshopName }: AddEquipmentModal
         Ajouter une machine
       </button>
       {open ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/55 px-4 py-6 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby={`add-equipment-${processId}`}>
-          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-[#244234] dark:bg-[#111f17]">
+        <div className="fixed inset-0 z-50 grid place-items-end bg-slate-950/55 px-0 py-0 backdrop-blur-sm sm:place-items-center sm:px-4 sm:py-6" role="dialog" aria-modal="true" aria-labelledby={`add-equipment-${processId}`}>
+          <div className="w-full max-w-lg rounded-t-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-[#244234] dark:bg-[#111f17] sm:rounded-2xl sm:p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-bold uppercase tracking-wide text-formital-green">Atelier</p>

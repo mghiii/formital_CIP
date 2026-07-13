@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { z } from "zod";
 import { Button } from "@/components/ui/Button";
 import { FormField } from "@/components/ui/FormField";
-import { getRoleHomePath, getSafeRedirectPath } from "@/lib/auth/roles";
+import { getDashboardPath, getSafeRedirectPath, isAppRole } from "@/lib/auth/roles";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { Profile } from "@/types/auth";
 
@@ -72,9 +72,14 @@ export function LoginForm() {
         return;
       }
 
+      if (!isAppRole(typedProfile.role)) {
+        router.replace("/unauthorized");
+        return;
+      }
+
       const next = searchParams.get("next");
       router.refresh();
-      router.replace(getSafeRedirectPath(next, getRoleHomePath(typedProfile.role)));
+      router.replace(getSafeRedirectPath(next, getDashboardPath(typedProfile.role), typedProfile.role));
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Connexion impossible.");
     } finally {

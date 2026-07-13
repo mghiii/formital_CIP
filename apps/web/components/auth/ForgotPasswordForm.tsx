@@ -44,14 +44,14 @@ export function ForgotPasswordForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="w-full max-w-md rounded-[1.5rem] bg-white p-6">
-      <h2 className="text-2xl font-semibold tracking-tight text-ink">Mot de passe oublie</h2>
-      <p className="mt-2 text-sm leading-6 text-muted">Recevez un lien securise pour choisir un nouveau mot de passe.</p>
+    <form onSubmit={onSubmit} className="w-full">
+      <h2 className="text-center text-2xl font-bold tracking-tight text-formital-green">Mot de passe oublie</h2>
+      <p className="mt-2 text-center text-sm leading-6 text-muted">Recevez un lien securise pour choisir un nouveau mot de passe.</p>
       <div className="mt-8 grid gap-5">
         <FormField id="email" label="Email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
         {error ? <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-danger">{error}</p> : null}
         {message ? <p className="rounded-2xl bg-teal-50 px-4 py-3 text-sm font-medium text-primary">{message}</p> : null}
-        <Button type="submit" disabled={loading}>
+        <Button type="submit" disabled={loading} className="min-h-12 bg-formital-green text-base hover:bg-formital-green-dark">
           {loading ? "Envoi..." : "Envoyer le lien"}
         </Button>
       </div>
