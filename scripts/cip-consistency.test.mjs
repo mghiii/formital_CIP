@@ -66,7 +66,7 @@ describe("coherence cycles CIP", () => {
     const complete = read("apps/web/app/api/cip/cycles/complete/route.ts");
     assert.match(checklist, /canEditCycle/);
     assert.match(checklist, /cycle\?\.operator_id === user\.id/);
-    assert.match(checklist, /start_planned_cip_cycle/);
+    assert.match(checklist, /startCycleThroughWorkflow/);
     assert.match(complete, /existingCycle\.operator_id !== user\.id/);
     assert.match(complete, /cycle-already-closed/);
     assert.match(complete, /cycle-not-running/);
@@ -82,29 +82,62 @@ describe("coherence cycles CIP", () => {
   });
 
   it("renforce les garanties SQL non destructives", () => {
-    const migration = read("supabase/migrations/20260713000500_planned_cycle_workflow.sql");
+    const migration = read("supabase/migrations/20260714000100_start_cip_cycle_rpc.sql");
     assert.match(migration, /cip_cycles_one_running_per_equipment_idx/);
     assert.match(migration, /where status in \('in_progress', 'running'\)/);
+    assert.match(migration, /create_cip_cycle/);
+    assert.match(migration, /start_cip_cycle/);
     assert.match(migration, /start_planned_cip_cycle/);
     assert.match(migration, /for update/);
-    assert.match(migration, /Equipment % already has a running CIP cycle/);
-    assert.match(migration, /Invalid CIP cycle status transition/);
-    assert.match(migration, /old_status = 'planned' and new_status not in \('ready', 'running', 'cancelled'\)/);
+    assert.match(migration, /EQUIPMENT_BUSY/);
+    assert.match(migration, /INVALID_CYCLE_STATUS/);
+    assert.match(migration, /CHECKLIST_INCOMPLETE/);
+    assert.match(migration, /START_WINDOW_NOT_OPEN/);
+  });
+
+  it("cree un cycle et sa checklist via une RPC atomique", () => {
+    const route = read("apps/web/app/api/cip/cycles/route.ts");
+    const startRoute = read("apps/web/app/api/cip/cycles/start/route.ts");
+    const workflow = read("apps/web/lib/cip/workflow.ts");
+    const migration = read("supabase/migrations/20260714000100_start_cip_cycle_rpc.sql");
+
+    assert.match(route, /createCycleThroughWorkflow/);
+    assert.match(startRoute, /createCycleThroughWorkflow/);
+    assert.match(workflow, /create_cip_cycle/);
+    assert.match(workflow, /CreateCycleWorkflowPayload/);
+    assert.match(migration, /returns jsonb/);
+    assert.match(migration, /insert into public\.cip_cycles/);
+    assert.match(migration, /insert into public\.cip_checklists/);
+    assert.match(migration, /on conflict \(cycle_id\) do update/);
+    assert.match(migration, /OPERATOR_INACTIVE/);
+    assert.match(migration, /EQUIPMENT_PROCESS_MISSING/);
+    assert.match(migration, /grant execute on function public\.create_cip_cycle/);
+    assert.doesNotMatch(route, /from\("cip_cycles"\)\.insert/);
+    assert.doesNotMatch(startRoute, /from\("cip_cycles"\)\.insert/);
   });
 
   it("centralise le demarrage des cycles CIP avec une RPC transactionnelle", () => {
     const startRoute = read("apps/web/app/api/cip/cycles/start/route.ts");
     const startPlannedRoute = read("apps/web/app/api/cip/cycles/start-planned/route.ts");
-    const migration = read("supabase/migrations/20260713000500_planned_cycle_workflow.sql");
+    const workflow = read("apps/web/lib/cip/workflow.ts");
+    const migration = read("supabase/migrations/20260714000100_start_cip_cycle_rpc.sql");
     const timer = read("apps/web/components/app/CycleTimer.tsx");
 
-    assert.match(startRoute, /status: "planned"/);
-    assert.match(startRoute, /start_planned_cip_cycle/);
-    assert.match(startPlannedRoute, /start_planned_cip_cycle/);
+    assert.match(startRoute, /p_status: "planned"/);
+    assert.match(startRoute, /startCycleThroughWorkflow/);
+    assert.match(startPlannedRoute, /startCycleThroughWorkflow/);
+    assert.match(workflow, /start_cip_cycle/);
+    assert.match(workflow, /start_planned_cip_cycle/);
+    assert.match(workflow, /isRpcNotAvailable/);
     assert.doesNotMatch(startPlannedRoute, /status:\s*"in_progress"/);
-    assert.match(migration, /operator_id = coalesce\(cycle_row\.operator_id, actor_id\)/);
+    assert.doesNotMatch(startRoute, /status:\s*"in_progress"/);
+    assert.match(migration, /operator_id = case/);
+    assert.match(migration, /started_by = actor_id/);
+    assert.match(migration, /update public\.equipments/);
+    assert.match(migration, /status = 'cleaning'/);
+    assert.match(migration, /'cycle', to_jsonb\(cycle_row\)/);
     assert.match(migration, /launch_window interval := interval '30 minutes'/);
-    assert.match(migration, /where id = cycle_row\.id\s+and status in \('draft', 'planned', 'ready'\)/);
+    assert.match(migration, /where id = cycle_row\.id\s+and status::text in/);
     assert.match(timer, /cycleStatus !== "En cours"/);
   });
 

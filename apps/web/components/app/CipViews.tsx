@@ -100,15 +100,34 @@ const workflowErrorMessages: Record<string, string> = {
   "checklist-incomplete": "La checklist doit etre entierement validee avant le demarrage.",
   equipment_unavailable: "Cette machine n'est pas disponible pour un demarrage CIP.",
   "equipment-unavailable": "Cette machine n'est pas disponible pour un demarrage CIP.",
+  "equipment-process": "Cette machine n'a pas de programme CIP actif ou n'est pas disponible.",
   equipment_out_of_service: "Cette machine est hors service.",
   equipment_cleaning: "Cette machine est deja en cours de nettoyage.",
   equipment_has_running_cycle: "Cette machine a deja un cycle CIP en cours.",
   "equipment-has-active-cycle": "Cette machine a deja un cycle CIP en cours.",
   "equipment-busy": "Cette machine a deja un cycle CIP en cours ou est en nettoyage.",
+  "equipment-inactive": "Cette machine est inactive.",
+  "equipment-not-found": "Machine introuvable dans la base de donnees.",
+  "equipment-process-missing": "Cette machine n'est rattachee a aucun programme CIP.",
+  "cycle-not-found": "Ce cycle n'existe plus dans la base de donnees.",
+  "cycle-permission": "Vos droits ne permettent pas de creer ou demarrer ce cycle. Verifiez le role du compte.",
+  "rpc-not-available": "Les fonctions CIP ne sont pas encore disponibles dans la base de donnees. Appliquez les migrations avant de continuer.",
+  "workflow-not-deployed": "Les fonctions CIP ne sont pas encore disponibles dans la base de donnees. Appliquez les migrations avant de continuer.",
+  "workflow-schema-outdated": "Le schema de la base de donnees n'est pas a jour pour les cycles CIP. Appliquez les migrations avant de continuer.",
+  "profile-not-found": "Votre profil utilisateur est introuvable ou inactif.",
+  "user-inactive": "Votre compte est inactif.",
+  "forbidden-role": "Votre role ne permet pas cette action sur les cycles CIP.",
+  "operator-not-available": "L'operateur assigne est introuvable, inactif ou n'a pas le role operateur.",
+  "operator-not-found": "L'operateur affecte est introuvable.",
+  "operator-role-invalid": "Le profil affecte n'a pas le role operateur.",
+  "operator-inactive": "L'operateur affecte est inactif.",
+  "checklist-not-found": "La checklist de ce cycle est introuvable.",
   cycle_assigned_other_operator: "Ce cycle est assigne a un autre operateur.",
   "cycle-assigned-to-another-operator": "Ce cycle est assigne a un autre operateur.",
   cycle_not_startable: "Ce cycle n'est pas dans un statut lancable.",
   "invalid-cycle-status": "Ce cycle n'est pas dans un statut lancable.",
+  "invalid-duration": "La duree cible du cycle doit etre superieure a zero minute.",
+  "invalid-date": "La date planifiee n'est pas valide.",
   launch_window_not_open: "Le cycle n'est pas encore dans sa fenetre de demarrage.",
   "start-window-not-open": "Le cycle n'est pas encore dans sa fenetre de demarrage.",
   process_equipment_mismatch: "Le process du cycle ne correspond pas a la machine selectionnee.",
@@ -118,8 +137,12 @@ const workflowErrorMessages: Record<string, string> = {
   "already-running": "Ce cycle a deja ete demarre.",
   cycle_not_running: "Le cycle doit etre en cours pour etre cloture.",
   "cycle-not-running": "Le cycle doit etre en cours pour etre cloture.",
-  cycle_start: "Le cycle n'a pas pu demarrer. Verifiez la checklist, la machine et l'affectation.",
-  "cycle-start": "Le cycle n'a pas pu demarrer. Verifiez la checklist, la machine et l'affectation."
+  "database-error": "La base de donnees a refuse l'action. Consultez le detail serveur pour identifier la contrainte exacte.",
+  "cycle-create": "Le cycle n'a pas pu etre cree dans la base de donnees.",
+  "checklist-create": "La checklist du cycle n'a pas pu etre creee.",
+  "checklist-save": "La checklist du cycle n'a pas pu etre enregistree.",
+  cycle_start: "La base de donnees a refuse le demarrage du cycle sans code metier detaille. Verifiez les logs serveur.",
+  "cycle-start": "La base de donnees a refuse le demarrage du cycle sans code metier detaille. Verifiez les logs serveur."
 };
 
 function WorkflowNotice({ error }: { error?: string }) {
@@ -758,6 +781,8 @@ type PlannedCycleReadiness = {
   hardBlockers: PlannedCycleBlocker[];
 };
 
+const startableCycleStatuses = ["draft", "planned", "ready", "pending", "scheduled"];
+
 function getPlannedCycleReadiness({
   cycle,
   equipment,
@@ -777,7 +802,7 @@ function getPlannedCycleReadiness({
   const plannedAt = cycle.plannedAt ? new Date(cycle.plannedAt) : null;
   const startWindowNotOpen = plannedAt && !Number.isNaN(plannedAt.getTime()) && Date.now() < plannedAt.getTime() - 30 * 60 * 1000;
 
-  if (!["draft", "planned", "ready"].includes(rawStatus)) {
+  if (!startableCycleStatuses.includes(rawStatus)) {
     blockers.push({ hard: true, message: `Statut cycle non lancable: ${rawStatus}.` });
   }
 

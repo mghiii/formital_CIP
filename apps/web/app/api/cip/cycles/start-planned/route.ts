@@ -1,22 +1,17 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getRouteAuthContext, isPrivilegedProfile } from "@/lib/auth/api";
 import { getSafeReturnPath, toAppUrl } from "@/lib/auth/redirects";
-
-function checked(formData: FormData, name: string) {
-  return formData.get(name) === "on";
-}
+import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import {
+  STARTABLE_CYCLE_STATUSES,
+  checklistFromFormData,
+  databaseErrorCode,
+  isChecklistComplete,
+  startCycleThroughWorkflow
+} from "@/lib/cip/workflow";
 
 function redirectAfterPost(request: NextRequest, path: string) {
   return NextResponse.redirect(toAppUrl(request, path), { status: 303 });
-}
-
-function encodeWorkflowError(result: unknown) {
-  if (!result || typeof result !== "object") {
-    return "cycle-start";
-  }
-
-  const payload = result as { code?: unknown };
-  return String(payload.code ?? "cycle-start").toLowerCase().replaceAll("_", "-");
 }
 
 export async function GET(request: NextRequest) {
@@ -37,48 +32,50 @@ export async function POST(request: NextRequest) {
     return redirectAfterPost(request, "/login");
   }
 
-  const { supabase, profile } = context;
+  const { supabase, profile, user } = context;
+  const db = createAdminSupabaseClient() ?? supabase;
 
+  const { data: cycle } = await supabase
+    .from("cip_cycles")
+    .select("id, operator_id, status")
+    .eq("id", cycleId)
+    .single();
+
+  const canStartCycle =
+    isPrivilegedProfile(profile) ||
+    cycle?.operator_id === user.id ||
+    (profile.role === "operator" &&
+      !cycle?.operator_id &&
+      STARTABLE_CYCLE_STATUSES.includes(String(cycle?.status) as (typeof STARTABLE_CYCLE_STATUSES)[number]));
+
+  if (!cycle?.id || !canStartCycle) {
+    return redirectAfterPost(request, `${cleanReturnTo}?error=cycle-permission`);
+  }
+
+  const checklistFields = checklistFromFormData(formData);
   const checklist = {
     cycle_id: cycleId,
-    valves_open: checked(formData, "valves_open"),
-    cleaning_product_available: checked(formData, "cleaning_product_available"),
-    tank_empty: checked(formData, "tank_empty"),
-    circuit_selected: checked(formData, "circuit_selected"),
-    safety_conditions_checked: checked(formData, "safety_conditions_checked"),
+    ...checklistFields,
     validated_at: new Date().toISOString()
   };
 
-  const allValidated = [
-    checklist.valves_open,
-    checklist.cleaning_product_available,
-    checklist.tank_empty,
-    checklist.circuit_selected,
-    checklist.safety_conditions_checked
-  ].every(Boolean);
-
-  if (!allValidated) {
+  if (!isChecklistComplete(checklistFields)) {
     return redirectAfterPost(request, `${cleanReturnTo}?error=checklist-incomplete`);
   }
 
-  const { error: checklistError } = await supabase.from("cip_checklists").upsert(checklist, {
+  const { error: checklistError } = await db.from("cip_checklists").upsert(checklist, {
     onConflict: "cycle_id"
   });
 
   if (checklistError) {
-    return redirectAfterPost(request, `${cleanReturnTo}?error=checklist-save`);
+    return redirectAfterPost(request, `${cleanReturnTo}?error=${databaseErrorCode(checklistError)}`);
   }
 
   const forceStart = formData.get("force_start") === "on" && isPrivilegedProfile(profile);
-  const { data: startResult, error: rpcError } = await supabase.rpc("start_planned_cip_cycle", {
-    p_cycle_id: cycleId,
-    p_force: forceStart
-  });
+  const startResult = await startCycleThroughWorkflow({ supabase, cycleId, forceStart });
 
-  const result = startResult as { ok?: boolean; message?: string } | null;
-
-  if (rpcError || result?.ok !== true) {
-    const code = rpcError ? "cycle-start" : encodeWorkflowError(result);
+  if (!startResult.ok) {
+    const code = startResult.code;
     return redirectAfterPost(request, `${cleanReturnTo}?error=${code}`);
   }
 

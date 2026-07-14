@@ -1,6 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getRouteAuthContext, isPrivilegedProfile } from "@/lib/auth/api";
 import { getSafeReturnPath, toAppUrl } from "@/lib/auth/redirects";
+import { createCycleThroughWorkflow } from "@/lib/cip/workflow";
+
+const MANAGEABLE_CYCLE_ROLES = ["operator", "engineer", "admin"] as const;
+
+function toIsoOrNull(value: string) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
 
 export async function POST(request: NextRequest) {
   const context = await getRouteAuthContext();
@@ -18,7 +27,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.redirect(toAppUrl(request, "/login"));
   }
 
-  if (!isPrivilegedProfile(context.profile)) {
+  if (!MANAGEABLE_CYCLE_ROLES.includes(context.profile.role as (typeof MANAGEABLE_CYCLE_ROLES)[number])) {
     return NextResponse.redirect(toAppUrl(request, "/unauthorized"));
   }
 
@@ -27,59 +36,34 @@ export async function POST(request: NextRequest) {
   }
 
   const { supabase, user } = context;
+  const isPrivileged = isPrivilegedProfile(context.profile);
+  const assignedOperatorId = isPrivileged ? operatorId || null : user.id;
 
-  const { data: equipment, error: equipmentError } = await supabase
-    .from("equipments")
-    .select("id, process_id, status, is_active")
-    .eq("id", equipmentId)
-    .single();
-
-  if (equipmentError || !equipment?.process_id || equipment.is_active === false) {
-    return NextResponse.redirect(toAppUrl(request, `${cleanReturnTo}?error=equipment-process`));
+  if (!isPrivileged && operatorId && operatorId !== user.id) {
+    return NextResponse.redirect(toAppUrl(request, `${cleanReturnTo}?error=cycle-permission`));
   }
 
-  if (["cleaning", "in_cleaning", "out_of_service"].includes(String(equipment.status))) {
-    return NextResponse.redirect(toAppUrl(request, `${cleanReturnTo}?error=equipment-unavailable`));
+  const plannedStartTime = toIsoOrNull(plannedAt);
+  if (plannedAt && !plannedStartTime) {
+    return NextResponse.redirect(toAppUrl(request, `${cleanReturnTo}?error=invalid-date`));
   }
 
-  const { data: activeCycle } = await supabase
-    .from("cip_cycles")
-    .select("id")
-    .eq("equipment_id", equipment.id)
-    .in("status", ["in_progress", "running"])
-    .limit(1)
-    .maybeSingle();
-
-  if (activeCycle?.id) {
-    return NextResponse.redirect(toAppUrl(request, `${cleanReturnTo}?error=equipment-has-active-cycle`));
-  }
-
-  const { data: cycle, error } = await supabase.from("cip_cycles").insert({
-    operator_id: operatorId || null,
-    equipment_id: equipment.id,
-    process_id: equipment.process_id,
-    status: "planned",
-    started_at: plannedAt ? new Date(plannedAt).toISOString() : new Date().toISOString(),
-    planned_start_time: plannedAt ? new Date(plannedAt).toISOString() : new Date().toISOString(),
-    planned_duration_minutes: Number.isFinite(plannedDuration) && plannedDuration > 0 ? Math.round(plannedDuration) : 45,
-    planned_by: user.id,
-    priority,
-    instructions: instructions || null,
-    observation: observation || null
-  }).select("id").single();
-
-  if (error || !cycle?.id) {
-    return NextResponse.redirect(toAppUrl(request, `${cleanReturnTo}?error=cycle-create`));
-  }
-
-  const { error: checklistError } = await supabase.from("cip_checklists").upsert({
-    cycle_id: cycle.id
-  }, {
-    onConflict: "cycle_id"
+  const createResult = await createCycleThroughWorkflow({
+    supabase,
+    payload: {
+      p_equipment_id: equipmentId,
+      p_operator_id: assignedOperatorId,
+      p_planned_start_time: plannedStartTime,
+      p_planned_duration_minutes: Number.isFinite(plannedDuration) && plannedDuration > 0 ? Math.round(plannedDuration) : 45,
+      p_priority: priority,
+      p_instructions: instructions || null,
+      p_observation: observation || null,
+      p_status: "planned"
+    }
   });
 
-  if (checklistError) {
-    return NextResponse.redirect(toAppUrl(request, `${cleanReturnTo}?error=checklist-create`));
+  if (!createResult.ok) {
+    return NextResponse.redirect(toAppUrl(request, `${cleanReturnTo}?error=${encodeURIComponent(createResult.code)}`));
   }
 
   return NextResponse.redirect(toAppUrl(request, `${cleanReturnTo}?created=cycle`));
