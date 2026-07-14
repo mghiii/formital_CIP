@@ -156,6 +156,80 @@ function WorkflowNotice({ error }: { error?: string }) {
   );
 }
 
+const equipmentErrorMessages: Record<string, string> = {
+  "missing-equipment-status-fields": "Selectionnez une machine et un statut avant de valider.",
+  "equipment-status-invalid": "Ce statut machine n'est pas autorise depuis cette action.",
+  "equipment-status-locked": "Cette machine est verrouillee car elle est en nettoyage ou hors service.",
+  "equipment-status-check": "La verification des cycles en cours a echoue.",
+  "equipment-status-update": "Le statut machine n'a pas pu etre mis a jour dans la base de donnees.",
+  "equipment-has-active-cycle": "Cette machine a deja un cycle CIP actif.",
+  "equipment-inactive": "Cette machine est inactive.",
+  "equipment-not-found": "Machine introuvable dans la base de donnees.",
+  "missing-equipment-fields": "Renseignez le nom de la machine et son atelier.",
+  "equipment-create": "La machine n'a pas pu etre creee."
+};
+
+function EquipmentNotice({ updated, error }: { updated?: boolean; error?: string }) {
+  if (updated) {
+    return (
+      <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-bold text-formital-green dark:border-green-400/30 dark:bg-green-500/10 dark:text-green-100">
+        Statut machine mis a jour.
+      </div>
+    );
+  }
+
+  if (!error) return null;
+  const message = equipmentErrorMessages[error] ?? "Action impossible sur cette machine. Verifiez son statut et les droits du compte.";
+
+  return (
+    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-100">
+      {message}
+    </div>
+  );
+}
+
+function profileBasePath(profile?: Pick<Profile, "role">) {
+  if (profile?.role === "admin") return "/admin";
+  if (profile?.role === "operator") return "/operator";
+  return "/engineer";
+}
+
+function equipmentStatusAction(status: string) {
+  if (status === "En nettoyage") {
+    return {
+      disabled: true,
+      label: "Cycle en cours",
+      helper: "Statut verrouille pendant le nettoyage.",
+      targetStatus: "cleaning"
+    };
+  }
+
+  if (status === "Hors service") {
+    return {
+      disabled: true,
+      label: "Hors service",
+      helper: "Remise en service a traiter hors cycle CIP.",
+      targetStatus: "out_of_service"
+    };
+  }
+
+  if (status === "Nettoye") {
+    return {
+      disabled: false,
+      label: "Rendre disponible",
+      helper: "Autoriser un nouveau nettoyage si besoin.",
+      targetStatus: "available"
+    };
+  }
+
+  return {
+    disabled: false,
+    label: "Marquer nettoye",
+    helper: "Confirmer que la machine est nettoyee.",
+    targetStatus: "cleaned"
+  };
+}
+
 export function QualityDashboardView({ data = fallbackData }: { data?: CipDashboardData }) {
   const metrics = data.metrics;
   const completedCycles = data.cycles.filter((cycle) => cycle.status === "Termine");
@@ -1141,13 +1215,25 @@ export function HistoryWorkspace({ data = fallbackData }: { data?: CipDashboardD
   );
 }
 
-export function EquipmentsWorkspace({ data = fallbackData }: { data?: CipDashboardData }) {
+export function EquipmentsWorkspace({
+  data = fallbackData,
+  profile,
+  equipmentUpdated = false,
+  equipmentError
+}: {
+  data?: CipDashboardData;
+  profile?: Profile;
+  equipmentUpdated?: boolean;
+  equipmentError?: string;
+}) {
   const inCleaning = data.equipments.filter((equipment) => equipment.status === "En nettoyage").length;
   const outOfService = data.equipments.filter((equipment) => equipment.status === "Hors service").length;
   const averageCompliance = Math.round(data.equipments.reduce((sum, equipment) => sum + equipment.compliance, 0) / Math.max(data.equipments.length, 1));
+  const equipmentsReturnPath = `${profileBasePath(profile)}/equipments`;
 
   return (
     <div className="grid gap-6">
+      <EquipmentNotice updated={equipmentUpdated} error={equipmentError} />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="Equipements actifs" value={String(data.equipments.length)} trend="Base de donnees" tone="green" />
         <KpiCard label="En nettoyage" value={String(inCleaning)} trend="CIP" tone="blue" />
@@ -1178,26 +1264,52 @@ export function EquipmentsWorkspace({ data = fallbackData }: { data?: CipDashboa
                   </div>
                 ) : (
                   <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    {workshop.equipments.map((equipment) => (
-                      <article key={equipment.id} className="min-w-0 overflow-hidden rounded-lg border border-slate-200 p-4 transition-colors dark:border-[#315941]">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <h4 className="mt-2 text-lg font-bold text-slate-950">{equipment.name}</h4>
+                    {workshop.equipments.map((equipment) => {
+                      const action = equipmentStatusAction(equipment.status);
+
+                      return (
+                        <article key={equipment.id} className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-slate-200 p-4 transition-colors dark:border-[#315941]">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <h4 className="mt-2 text-lg font-bold text-slate-950">{equipment.name}</h4>
+                            </div>
+                            <StatusBadge value={equipment.status} />
                           </div>
-                          <StatusBadge value={equipment.status} />
-                        </div>
-                        <div className="mt-4">
-                          <div className="flex justify-between text-sm">
-                            <span>Conformite</span>
-                            <b>{equipment.compliance}%</b>
+                          <div className="mt-4">
+                            <div className="flex justify-between text-sm">
+                              <span>Conformite</span>
+                              <b>{equipment.compliance}%</b>
+                            </div>
+                            <div className="mt-2 h-2 rounded-full bg-slate-100 dark:bg-white/10">
+                              <div className="h-2 rounded-full bg-formital-green" style={{ width: `${equipment.compliance}%` }} />
+                            </div>
                           </div>
-                          <div className="mt-2 h-2 rounded-full bg-slate-100">
-                            <div className="h-2 rounded-full bg-formital-green" style={{ width: `${equipment.compliance}%` }} />
-                          </div>
-                        </div>
-                        <p className="mt-4 text-sm text-muted">Dernier cycle: {equipment.lastCycle}</p>
-                      </article>
-                    ))}
+                          <p className="mt-4 text-sm text-muted">Dernier cycle: {equipment.lastCycle}</p>
+                          <form action="/api/cip/equipments" method="post" className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-[#315941] dark:bg-[#07170f]">
+                            <input type="hidden" name="intent" value="status" />
+                            <input type="hidden" name="equipment_id" value={equipment.id} />
+                            <input type="hidden" name="status" value={action.targetStatus} />
+                            <input type="hidden" name="return_to" value={equipmentsReturnPath} />
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                              <p className="text-xs font-semibold text-muted">{action.helper}</p>
+                              <button
+                                type="submit"
+                                disabled={action.disabled}
+                                className={`min-h-10 shrink-0 rounded-lg px-3 text-sm font-bold transition ${
+                                  action.disabled
+                                    ? "cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-white/35"
+                                    : action.targetStatus === "available"
+                                      ? "border border-emerald-200 bg-white text-formital-green hover:border-formital-green hover:bg-green-50 dark:border-green-500/30 dark:bg-green-500/10 dark:text-green-100"
+                                      : "bg-formital-green text-white hover:bg-formital-green-dark"
+                                }`}
+                              >
+                                {action.label}
+                              </button>
+                            </div>
+                          </form>
+                        </article>
+                      );
+                    })}
                   </div>
                 )}
               </article>

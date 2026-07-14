@@ -11,7 +11,7 @@ export default async function EngineerDashboardPage() {
     <AppShell
       profile={profile}
       activePath="/engineer/dashboard"
-      title="Bienvenue, Responsable Qualite"
+      title="Bienvenue, Ingenieur de production"
       subtitle="Suivi et analyse des operations CIP"
       alertCount={data.metrics.activeAlerts}
     >

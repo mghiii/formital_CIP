@@ -185,6 +185,29 @@ describe("coherence cycles CIP", () => {
     assert.match(startRoute, /\["cleaning", "in_cleaning", "out_of_service"\]/);
   });
 
+  it("permet de basculer une machine entre nettoyee et disponible sans toucher aux cycles actifs", () => {
+    const route = read("apps/web/app/api/cip/equipments/route.ts");
+    const views = read("apps/web/components/app/CipViews.tsx");
+    const operatorPage = read("apps/web/app/operator/equipments/page.tsx");
+    const engineerPage = read("apps/web/app/engineer/equipments/page.tsx");
+    const adminPage = read("apps/web/app/admin/equipments/page.tsx");
+
+    assert.match(route, /intent === "status"/);
+    assert.match(route, /editableEquipmentStatuses/);
+    assert.match(route, /new Set\(\["available", "cleaned"\]\)/);
+    assert.match(route, /lockedEquipmentStatuses/);
+    assert.match(route, /new Set\(\["cleaning", "in_cleaning", "out_of_service"\]\)/);
+    assert.match(route, /equipment-has-active-cycle/);
+    assert.match(route, /createAdminSupabaseClient\(\) \?\? context\.supabase/);
+    assert.match(views, /Rendre disponible/);
+    assert.match(views, /Marquer nettoye/);
+    assert.match(views, /equipmentStatusAction/);
+    assert.match(views, /Statut machine mis a jour/);
+    assert.match(operatorPage, /profile=\{profile\}/);
+    assert.match(engineerPage, /profile=\{profile\}/);
+    assert.match(adminPage, /profile=\{profile\}/);
+  });
+
   it("ajoute le workflow de traitement des alertes", () => {
     const route = read("apps/web/app/api/cip/alerts/update/route.ts");
     const migration = read("supabase/migrations/20260713000300_alert_resolution_workflow.sql");
