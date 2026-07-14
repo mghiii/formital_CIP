@@ -226,4 +226,63 @@ describe("coherence cycles CIP", () => {
     assert.match(table, /md:block/);
     assert.match(table, /Details/);
   });
+
+  it("rend la solution CIP obligatoire au lancement et a la planification", () => {
+    const views = read("apps/web/components/app/CipViews.tsx");
+    const startRoute = read("apps/web/app/api/cip/cycles/start/route.ts");
+    const planRoute = read("apps/web/app/api/cip/cycles/route.ts");
+    const workflow = read("apps/web/lib/cip/workflow.ts");
+    const migration = read("supabase/migrations/20260714000200_cip_solutions_and_concentrations.sql");
+
+    assert.match(views, /name="solution_id"/);
+    assert.match(views, /Solution de nettoyage utilisee/);
+    assert.match(views, /Selectionnez une solution de nettoyage/);
+    assert.match(startRoute, /validateActiveCipSolution/);
+    assert.match(planRoute, /validateActiveCipSolution/);
+    assert.match(startRoute, /p_solution_id/);
+    assert.match(planRoute, /p_solution_id/);
+    assert.match(workflow, /p_solution_id/);
+    assert.match(migration, /create table if not exists public\.cip_solutions/);
+    assert.match(migration, /solution_id uuid references public\.cip_solutions/);
+    assert.match(migration, /grant select on public\.cip_solutions/);
+  });
+
+  it("enregistre et affiche les concentrations soude et acide", () => {
+    const complete = read("apps/web/app/api/cip/cycles/complete/route.ts");
+    const data = read("apps/web/lib/cip/data.ts");
+    const details = read("apps/web/components/app/CycleDetailsTable.tsx");
+    const views = read("apps/web/components/app/CipViews.tsx");
+    const migration = read("supabase/migrations/20260714000200_cip_solutions_and_concentrations.sql");
+
+    assert.match(complete, /caustic_concentration/);
+    assert.match(complete, /acid_concentration/);
+    assert.match(complete, /concentration_unit/);
+    assert.match(complete, /component: "caustic"/);
+    assert.match(complete, /component: "acid"/);
+    assert.match(data, /causticConcentration/);
+    assert.match(data, /acidConcentration/);
+    assert.match(details, /Conc\. soude/);
+    assert.match(details, /Conc\. acide/);
+    assert.match(details, /concentrationSummary/);
+    assert.match(views, /Concentration soude/);
+    assert.match(views, /Concentration acide/);
+    assert.match(migration, /caustic_concentration numeric/);
+    assert.match(migration, /acid_concentration numeric/);
+  });
+
+  it("integre les solutions et concentrations dans les rapports PDF et Excel", () => {
+    const reporting = read("apps/web/lib/cip/reporting.ts");
+    const exportRoute = read("apps/web/app/api/cip/export/route.ts");
+
+    assert.match(reporting, /solutionStats/);
+    assert.match(reporting, /workshopSolutionStats/);
+    assert.match(reporting, /causticAverage/);
+    assert.match(reporting, /acidAverage/);
+    assert.match(exportRoute, /Solutions utilisees/);
+    assert.match(exportRoute, /Concentration par atelier/);
+    assert.match(exportRoute, /addSolutionsPage/);
+    assert.match(exportRoute, /Conc\. soude/);
+    assert.match(exportRoute, /Conc\. acide/);
+    assert.match(exportRoute, /Aucune donnee de concentration/);
+  });
 });

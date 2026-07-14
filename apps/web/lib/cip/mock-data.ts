@@ -1,6 +1,16 @@
 export type CycleStatus = "Planifie" | "En cours" | "Termine" | "Bloque";
 export type CycleResult = "Conforme" | "Non conforme" | "En attente";
 export type AlertSeverity = "Critique" | "Warning" | "Info";
+export type CipSolutionType = "caustic" | "acid" | "water" | "disinfectant" | "other";
+
+export type CipSolution = {
+  id: string;
+  name: string;
+  code: string;
+  solutionType: CipSolutionType;
+  unit: string;
+  isActive: boolean;
+};
 
 export type CipCycle = {
   id: string;
@@ -14,6 +24,9 @@ export type CipCycle = {
   instructions?: string;
   equipment: string;
   process: string;
+  solutionId?: string | null;
+  solution?: string;
+  solutionType?: CipSolutionType | string | null;
   status: CycleStatus;
   result: CycleResult;
   operator: string;
@@ -24,6 +37,9 @@ export type CipCycle = {
   soda: number;
   acid: number;
   detergent: number;
+  concentrationUnit?: string;
+  causticConcentration?: number;
+  acidConcentration?: number;
   visualAspect?: string;
   observation?: string;
 };

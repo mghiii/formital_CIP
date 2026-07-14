@@ -34,6 +34,25 @@ function valueOrDash(value: number | string | undefined | null, suffix = "") {
   return `${value}${suffix}`;
 }
 
+function formatConcentration(value: number | undefined | null, unit = "%") {
+  if (value === undefined || value === null || !Number.isFinite(value) || value <= 0) return "-";
+  return `${value} ${unit}`;
+}
+
+function concentrationSummary(cycle: CipCycle) {
+  const unit = cycle.concentrationUnit ?? "%";
+
+  if (cycle.solutionType === "caustic") return formatConcentration(cycle.causticConcentration, unit);
+  if (cycle.solutionType === "acid") return formatConcentration(cycle.acidConcentration, unit);
+
+  const values = [
+    cycle.causticConcentration ? `Soude ${formatConcentration(cycle.causticConcentration, unit)}` : "",
+    cycle.acidConcentration ? `Acide ${formatConcentration(cycle.acidConcentration, unit)}` : ""
+  ].filter(Boolean);
+
+  return values.length ? values.join(" / ") : "Non requis";
+}
+
 function StatusBadge({ value }: { value: string }) {
   const tone =
     value === "Conforme" || value === "Termine" || value === "Disponible" || value === "Nettoye" || value === "Resolue" || value === "Actif"
@@ -67,7 +86,7 @@ function checklistItems(checklist?: ChecklistState) {
 export function CycleDetailsTable({ cycles, checklists = {}, allowDelete = false }: CycleDetailsTableProps) {
   const [selectedCycle, setSelectedCycle] = useState<CipCycle | null>(null);
   const selectedChecklist = selectedCycle ? checklists[selectedCycle.id] : undefined;
-  const columnCount = allowDelete ? 8 : 7;
+  const columnCount = allowDelete ? 10 : 9;
 
   return (
     <>
@@ -92,6 +111,8 @@ export function CycleDetailsTable({ cycles, checklists = {}, allowDelete = false
                 <DetailTile label="Resultat" value={cycle.result} />
                 <DetailTile label="Operateur" value={cycle.operator} />
                 <DetailTile label="Eau" value={valueOrDash(cycle.water, " L")} />
+                <DetailTile label="Solution" value={cycle.solution ?? "Non renseignee"} />
+                <DetailTile label="Concentration" value={concentrationSummary(cycle)} />
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 <button
@@ -125,12 +146,14 @@ export function CycleDetailsTable({ cycles, checklists = {}, allowDelete = false
       </div>
 
       <div className="responsive-table-shell hidden max-h-[28rem] flex-1 md:block">
-        <table className="w-full min-w-[760px] text-left text-sm">
+        <table className="w-full min-w-[980px] text-left text-sm">
           <thead className="sticky top-0 z-10 border-b border-slate-200 bg-white text-xs uppercase tracking-wide text-slate-500 dark:border-[#315941] dark:bg-[#0d1b13]">
             <tr>
               <th className="py-3 pr-4">Date/Heure</th>
               <th className="py-3 pr-4">Equipement</th>
               <th className="py-3 pr-4">Programme</th>
+              <th className="py-3 pr-4">Solution</th>
+              <th className="py-3 pr-4">Conc.</th>
               <th className="py-3 pr-4">Duree</th>
               <th className="py-3 pr-4">Statut</th>
               <th className="py-3 pr-4">Resultat</th>
@@ -163,6 +186,8 @@ export function CycleDetailsTable({ cycles, checklists = {}, allowDelete = false
                   <td className="py-3 pr-4 font-medium whitespace-nowrap">{cycle.date}</td>
                   <td className="py-3 pr-4 max-w-[12rem] truncate" title={cycle.equipment}>{cycle.equipment}</td>
                   <td className="py-3 pr-4 max-w-[12rem] truncate" title={cycle.process}>{cycle.process}</td>
+                  <td className="py-3 pr-4 max-w-[11rem] truncate" title={cycle.solution ?? "Non renseignee"}>{cycle.solution ?? "-"}</td>
+                  <td className="py-3 pr-4 whitespace-nowrap">{concentrationSummary(cycle)}</td>
                   <td className="py-3 pr-4 whitespace-nowrap">{formatCycleDuration(cycle.duration)}</td>
                   <td className="py-3 pr-4"><StatusBadge value={cycle.status} /></td>
                   <td className="py-3 pr-4"><StatusBadge value={cycle.result} /></td>
@@ -236,7 +261,7 @@ export function CycleDetailsTable({ cycles, checklists = {}, allowDelete = false
               <DetailTile label="Statut" value={selectedCycle.status} />
               <DetailTile label="Resultat" value={selectedCycle.result} />
               <DetailTile label="Duree" value={formatCycleDuration(selectedCycle.duration)} />
-              <DetailTile label="Aspect visuel" value={selectedCycle.visualAspect ?? "Non renseigne"} />
+              <DetailTile label="Solution" value={selectedCycle.solution ?? "Non renseignee"} />
             </div>
 
             <div className="mt-5 grid gap-4 md:grid-cols-3">
@@ -245,6 +270,9 @@ export function CycleDetailsTable({ cycles, checklists = {}, allowDelete = false
               <DetailTile label="Detergent total" value={valueOrDash(selectedCycle.detergent, " L")} />
               <DetailTile label="Soude" value={valueOrDash(selectedCycle.soda, " L")} />
               <DetailTile label="Acide" value={valueOrDash(selectedCycle.acid, " L")} />
+              <DetailTile label="Conc. soude" value={formatConcentration(selectedCycle.causticConcentration, selectedCycle.concentrationUnit ?? "%")} />
+              <DetailTile label="Conc. acide" value={formatConcentration(selectedCycle.acidConcentration, selectedCycle.concentrationUnit ?? "%")} />
+              <DetailTile label="Aspect visuel" value={selectedCycle.visualAspect ?? "Non renseigne"} />
               <DetailTile label="Duree cible" value={`${selectedCycle.targetDurationMinutes} min`} />
             </div>
 

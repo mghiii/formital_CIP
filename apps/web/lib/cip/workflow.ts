@@ -30,6 +30,7 @@ export type ChecklistPayload = {
 
 export type CreateCycleWorkflowPayload = {
   p_equipment_id: string;
+  p_solution_id?: string | null;
   p_operator_id?: string | null;
   p_planned_start_time?: string | null;
   p_planned_duration_minutes?: number;
@@ -78,6 +79,11 @@ export function databaseErrorCode(error: DatabaseError, fallback = "database-err
   if (message.includes("planned_start_time") || message.includes("planned_duration_minutes") || message.includes("started_by")) {
     return "workflow-schema-outdated";
   }
+  if (message.includes("cip_solutions") || message.includes("solution_id") || message.includes("p_solution_id")) {
+    return "workflow-schema-outdated";
+  }
+  if (message.includes("solution_required") || message.includes("missing solution")) return "solution-required";
+  if (message.includes("solution_not_found") || message.includes("solution_inactive")) return "solution-invalid";
   if (message.includes("invalid input value for enum")) return "workflow-schema-outdated";
   if (message.includes("not-null") && message.includes("operator_id")) return "workflow-schema-outdated";
   if (message.includes("duplicate key") || message.includes("already has a running")) return "equipment-has-active-cycle";

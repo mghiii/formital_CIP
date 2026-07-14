@@ -7,6 +7,7 @@ export type ReportOptions = {
   startDate: string;
   endDate: string;
   equipment: string;
+  solution: string;
   status: string;
   result: string;
   includeCycles: boolean;
@@ -51,6 +52,18 @@ function number1(value: number) {
   return Math.round(value * 10) / 10;
 }
 
+function stats(values: number[]) {
+  if (values.length === 0) {
+    return { average: 0, min: 0, max: 0 };
+  }
+
+  return {
+    average: number1(values.reduce((sum, value) => sum + value, 0) / values.length),
+    min: number1(Math.min(...values)),
+    max: number1(Math.max(...values))
+  };
+}
+
 export function pct(value: number, total: number) {
   return total > 0 ? Math.round((value / total) * 100) : 0;
 }
@@ -84,6 +97,7 @@ export function filterReportCycles(cycles: CipCycle[], options: ReportOptions) {
     if (start && started && started < start) return false;
     if (end && started && started > end) return false;
     if (options.equipment !== "all" && cycle.equipment !== options.equipment) return false;
+    if (options.solution !== "all" && cycle.solutionId !== options.solution && cycle.solution !== options.solution) return false;
     if (options.status === "completed" && cycle.status !== "Termine") return false;
     if (options.status === "active" && !["En cours", "Planifie"].includes(cycle.status)) return false;
     if (options.status === "blocked" && cycle.status !== "Bloque") return false;
@@ -147,6 +161,35 @@ export function buildReportAnalytics(data: CipDashboardData, cycles: CipCycle[])
   const dailyRows = new Map<string, { day: string; label: string; count: number; completed: number; active: number; planned: number; blocked: number }>();
   const workshopRows = new Map<string, { workshop: string; cycles: number; compliant: number; nonCompliant: number; water: number; detergent: number }>();
   const programRows = new Map<string, { program: string; cycles: number; compliant: number; nonCompliant: number; duration: number; water: number; detergent: number }>();
+  const solutionRows = new Map<
+    string,
+    {
+      solution: string;
+      type: string;
+      unit: string;
+      cycles: number;
+      causticValues: number[];
+      acidValues: number[];
+      missingValues: number;
+      compliant: number;
+      nonCompliant: number;
+    }
+  >();
+  const workshopSolutionRows = new Map<
+    string,
+    {
+      workshop: string;
+      cycles: number;
+      causticCycles: number;
+      acidCycles: number;
+      causticValues: number[];
+      acidValues: number[];
+      missingValues: number;
+      compliant: number;
+      nonCompliant: number;
+      unit: string;
+    }
+  >();
 
   for (const cycle of cycles) {
     const equipment = equipmentByName.get(cycle.equipment);
@@ -169,6 +212,15 @@ export function buildReportAnalytics(data: CipDashboardData, cycles: CipCycle[])
     dailyRows.set(day, daily);
 
     if (cycle.status !== "Termine") continue;
+    const solutionName = cycle.solution ?? "Solution non renseignee";
+    const solutionType = String(cycle.solutionType ?? "other");
+    const concentrationUnit = cycle.concentrationUnit ?? "%";
+    const hasCaustic = typeof cycle.causticConcentration === "number" && cycle.causticConcentration > 0;
+    const hasAcid = typeof cycle.acidConcentration === "number" && cycle.acidConcentration > 0;
+    const missingConcentration =
+      (solutionType === "caustic" && !hasCaustic) ||
+      (solutionType === "acid" && !hasAcid) ||
+      (!["caustic", "acid"].includes(solutionType) && !hasCaustic && !hasAcid);
 
     const equipmentRow = equipmentRows.get(cycle.equipment) ?? {
       equipment: cycle.equipment,
@@ -210,6 +262,47 @@ export function buildReportAnalytics(data: CipDashboardData, cycles: CipCycle[])
     programRow.water += cycle.water;
     programRow.detergent += cycle.detergent;
     programRows.set(cycle.process, programRow);
+
+    const solutionRow = solutionRows.get(solutionName) ?? {
+      solution: solutionName,
+      type: solutionType,
+      unit: concentrationUnit,
+      cycles: 0,
+      causticValues: [],
+      acidValues: [],
+      missingValues: 0,
+      compliant: 0,
+      nonCompliant: 0
+    };
+    solutionRow.cycles += 1;
+    solutionRow.compliant += cycle.result === "Conforme" ? 1 : 0;
+    solutionRow.nonCompliant += cycle.result === "Non conforme" ? 1 : 0;
+    if (hasCaustic) solutionRow.causticValues.push(cycle.causticConcentration ?? 0);
+    if (hasAcid) solutionRow.acidValues.push(cycle.acidConcentration ?? 0);
+    if (missingConcentration) solutionRow.missingValues += 1;
+    solutionRows.set(solutionName, solutionRow);
+
+    const workshopSolutionRow = workshopSolutionRows.get(workshop) ?? {
+      workshop,
+      cycles: 0,
+      causticCycles: 0,
+      acidCycles: 0,
+      causticValues: [],
+      acidValues: [],
+      missingValues: 0,
+      compliant: 0,
+      nonCompliant: 0,
+      unit: concentrationUnit
+    };
+    workshopSolutionRow.cycles += 1;
+    workshopSolutionRow.causticCycles += solutionType === "caustic" ? 1 : 0;
+    workshopSolutionRow.acidCycles += solutionType === "acid" ? 1 : 0;
+    workshopSolutionRow.compliant += cycle.result === "Conforme" ? 1 : 0;
+    workshopSolutionRow.nonCompliant += cycle.result === "Non conforme" ? 1 : 0;
+    if (hasCaustic) workshopSolutionRow.causticValues.push(cycle.causticConcentration ?? 0);
+    if (hasAcid) workshopSolutionRow.acidValues.push(cycle.acidConcentration ?? 0);
+    if (missingConcentration) workshopSolutionRow.missingValues += 1;
+    workshopSolutionRows.set(workshop, workshopSolutionRow);
   }
 
   return {
@@ -255,6 +348,47 @@ export function buildReportAnalytics(data: CipDashboardData, cycles: CipCycle[])
         water: number1(row.water),
         detergent: number1(row.detergent)
       }))
+      .sort((a, b) => b.cycles - a.cycles),
+    solutionStats: Array.from(solutionRows.values())
+      .map((row) => {
+        const caustic = stats(row.causticValues);
+        const acidStats = stats(row.acidValues);
+        return {
+          solution: row.solution,
+          type: row.type,
+          unit: row.unit,
+          cycles: row.cycles,
+          causticAverage: caustic.average,
+          causticMin: caustic.min,
+          causticMax: caustic.max,
+          acidAverage: acidStats.average,
+          acidMin: acidStats.min,
+          acidMax: acidStats.max,
+          missingValues: row.missingValues,
+          compliance: row.cycles ? number1((row.compliant / row.cycles) * 100) : 0
+        };
+      })
+      .sort((a, b) => b.cycles - a.cycles),
+    workshopSolutionStats: Array.from(workshopSolutionRows.values())
+      .map((row) => {
+        const caustic = stats(row.causticValues);
+        const acidStats = stats(row.acidValues);
+        return {
+          workshop: row.workshop,
+          cycles: row.cycles,
+          causticCycles: row.causticCycles,
+          acidCycles: row.acidCycles,
+          unit: row.unit,
+          causticAverage: caustic.average,
+          causticMin: caustic.min,
+          causticMax: caustic.max,
+          acidAverage: acidStats.average,
+          acidMin: acidStats.min,
+          acidMax: acidStats.max,
+          missingValues: row.missingValues,
+          compliance: row.cycles ? number1((row.compliant / row.cycles) * 100) : 0
+        };
+      })
       .sort((a, b) => b.cycles - a.cycles),
     analysisRules: REPORT_ANALYSIS_RULES
   };

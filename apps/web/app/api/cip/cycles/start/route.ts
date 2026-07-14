@@ -7,11 +7,13 @@ import {
   isChecklistComplete,
   startCycleThroughWorkflow
 } from "@/lib/cip/workflow";
+import { validateActiveCipSolution } from "@/lib/cip/solutions";
 
 export async function POST(request: NextRequest) {
   const context = await getRouteAuthContext();
   const formData = await request.formData();
   const equipmentId = String(formData.get("equipment_id") ?? "");
+  const solutionId = String(formData.get("solution_id") ?? "");
   const cleanReturnTo = getSafeReturnPath(request, "/operator/dashboard");
 
   const checklist = checklistFromFormData(formData);
@@ -25,11 +27,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.redirect(toAppUrl(request, `${cleanReturnTo}?error=checklist-incomplete`));
   }
 
+  if (!solutionId.trim()) {
+    return NextResponse.redirect(toAppUrl(request, `${cleanReturnTo}?error=missing-solution`));
+  }
+
   if (!context) {
     return NextResponse.redirect(toAppUrl(request, "/login"));
   }
 
   const { supabase, user, profile } = context;
+
+  const solutionResult = await validateActiveCipSolution(supabase, solutionId);
+
+  if (!solutionResult.ok) {
+    return NextResponse.redirect(toAppUrl(request, `${cleanReturnTo}?error=${encodeURIComponent(solutionResult.code)}`));
+  }
 
   const { data: equipment, error: equipmentError } = await supabase
     .from("equipments")
@@ -63,6 +75,7 @@ export async function POST(request: NextRequest) {
     payload: {
       p_equipment_id: equipment.id,
       p_operator_id: profile.role === "operator" ? user.id : null,
+      p_solution_id: solutionResult.solution.id,
       p_planned_start_time: now,
       p_planned_duration_minutes: 45,
       p_status: "planned",

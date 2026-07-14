@@ -27,6 +27,7 @@ const fallbackData: CipDashboardData = {
   dailyCycles: [],
   waterConsumption: [],
   detergentConsumption: [],
+  solutions: [],
   users: [],
   checklists: {},
   source: "unavailable",
@@ -96,6 +97,10 @@ function EmptyState({ children }: { children: ReactNode }) {
 const workflowErrorMessages: Record<string, string> = {
   missing_equipment: "Selectionnez une machine avant de demarrer le cycle.",
   "missing-equipment": "Selectionnez une machine avant de demarrer le cycle.",
+  "missing-solution": "Selectionnez une solution de nettoyage.",
+  "solution-required": "Selectionnez une solution de nettoyage.",
+  "solution-invalid": "La solution de nettoyage selectionnee est introuvable ou inactive.",
+  "solution-inactive": "La solution de nettoyage selectionnee est inactive.",
   checklist_incomplete: "La checklist doit etre entierement validee avant le demarrage.",
   "checklist-incomplete": "La checklist doit etre entierement validee avant le demarrage.",
   equipment_unavailable: "Cette machine n'est pas disponible pour un demarrage CIP.",
@@ -736,7 +741,21 @@ function parameterValue(value: number | string | undefined | null, suffix = "") 
 }
 
 function CurrentParameters({ cycle }: { cycle: CipDashboardData["cycles"][number] }) {
+  const concentrationLabel =
+    cycle.solutionType === "caustic"
+      ? "Conc. soude"
+      : cycle.solutionType === "acid"
+        ? "Conc. acide"
+        : "Concentration";
+  const concentrationValue =
+    cycle.solutionType === "caustic"
+      ? parameterValue(cycle.causticConcentration, ` ${cycle.concentrationUnit ?? "%"}`)
+      : cycle.solutionType === "acid"
+        ? parameterValue(cycle.acidConcentration, ` ${cycle.concentrationUnit ?? "%"}`)
+        : "Non requis";
   const parameters = [
+    ["Solution", parameterValue(cycle.solution)],
+    [concentrationLabel, concentrationValue],
     ["Temp", parameterValue(cycle.temperature, " C")],
     ["Eau", parameterValue(cycle.water, " L")],
     ["Det.", parameterValue(cycle.detergent, " L")],
@@ -777,6 +796,8 @@ function ActiveCycleCard({
 }) {
   const operatorName = cycle.operator || fallbackOperatorName;
   const plannedReadiness = getPlannedCycleReadiness({ cycle, equipment, profile, checklist, canForceStart });
+  const showCausticConcentration = cycle.solutionType === "caustic";
+  const showAcidConcentration = cycle.solutionType === "acid";
 
   return (
     <article className="grid gap-5 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-[#315941] dark:bg-[#07170f]">
@@ -785,6 +806,7 @@ function ActiveCycleCard({
           <p className="text-sm text-muted">Equipement</p>
           <p className="mt-1 text-2xl font-bold text-slate-950">{cycle.equipment}</p>
           <p className="mt-2 text-sm text-muted">{cycle.process} - Operateur: {operatorName}</p>
+          <p className="mt-2 text-sm font-semibold text-slate-700">Solution: {cycle.solution ?? "Solution non renseignee"}</p>
           <p className="mt-3"><StatusBadge value={cycle.status} /></p>
         </div>
         {cycle.status === "Planifie" ? <PlannedCycleSummary cycle={cycle} readiness={plannedReadiness} /> : <CycleTimer cycle={cycle} />}
@@ -814,6 +836,36 @@ function ActiveCycleCard({
             </select>
           </label>
         </div>
+        {showCausticConcentration || showAcidConcentration ? (
+          <div className="grid gap-3 md:grid-cols-3">
+            {showCausticConcentration ? (
+              <label className="grid gap-2 text-sm font-semibold text-slate-700">
+                Concentration soude {cycle.concentrationUnit ?? "%"}
+                <input
+                  name="caustic_concentration"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  defaultValue={cycle.causticConcentration || ""}
+                  className="min-h-11 rounded-lg border border-slate-200 px-3 outline-none focus:border-formital-green"
+                />
+              </label>
+            ) : null}
+            {showAcidConcentration ? (
+              <label className="grid gap-2 text-sm font-semibold text-slate-700">
+                Concentration acide {cycle.concentrationUnit ?? "%"}
+                <input
+                  name="acid_concentration"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  defaultValue={cycle.acidConcentration || ""}
+                  className="min-h-11 rounded-lg border border-slate-200 px-3 outline-none focus:border-formital-green"
+                />
+              </label>
+            ) : null}
+          </div>
+        ) : null}
         <div className="grid gap-3 md:grid-cols-3">
           <label className="grid gap-2 text-sm font-semibold text-slate-700">
             Soude L
@@ -1026,6 +1078,9 @@ function PlannedCycleStartForm({
 }
 
 function StartCycleForm({ data, availableEquipments }: { data: CipDashboardData; availableEquipments: CipDashboardData["equipments"] }) {
+  const activeSolutions = data.solutions.filter((solution) => solution.isActive);
+  const cannotStart = availableEquipments.length === 0 || activeSolutions.length === 0;
+
   return (
     <form action="/api/cip/cycles/start" method="post" className="grid gap-3">
       <label className="grid gap-2 text-sm font-semibold text-slate-700">
@@ -1053,6 +1108,22 @@ function StartCycleForm({ data, availableEquipments }: { data: CipDashboardData;
           })}
         </select>
       </label>
+      <label className="grid gap-2 text-sm font-semibold text-slate-700">
+        Solution de nettoyage utilisee
+        <select
+          name="solution_id"
+          required
+          disabled={activeSolutions.length === 0}
+          className="min-h-12 rounded-lg border border-slate-200 bg-white px-3 outline-none focus:border-formital-green disabled:cursor-not-allowed disabled:bg-slate-100"
+        >
+          <option value="">Selectionnez une solution de nettoyage</option>
+          {activeSolutions.map((solution) => (
+            <option key={solution.id} value={solution.id}>
+              {solution.name} - {solution.unit}
+            </option>
+          ))}
+        </select>
+      </label>
       {[
         ["valves_open", checklistItems[0]],
         ["cleaning_product_available", checklistItems[1]],
@@ -1073,13 +1144,16 @@ function StartCycleForm({ data, availableEquipments }: { data: CipDashboardData;
       <button
         name="intent"
         value="start"
-        disabled={availableEquipments.length === 0}
+        disabled={cannotStart}
         className="min-h-11 rounded-lg bg-formital-green px-4 font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
       >
         Creer et demarrer le cycle
       </button>
       {availableEquipments.length === 0 ? (
         <p className="text-sm font-semibold text-amber-700">Aucune machine disponible pour demarrer un nouveau CIP.</p>
+      ) : null}
+      {activeSolutions.length === 0 ? (
+        <p className="text-sm font-semibold text-amber-700">Aucune solution CIP active dans la base de donnees. Appliquez la migration des solutions avant de demarrer un cycle.</p>
       ) : null}
     </form>
   );
@@ -1128,6 +1202,7 @@ export function CyclesWorkspace({
   const planned = data.cycles.filter((cycle) => cycle.status === "Planifie").length;
   const nonCompliant = data.cycles.filter((cycle) => cycle.result === "Non conforme").length;
   const operators = data.users.filter((user) => user.role === "operator" && user.status === "Actif");
+  const activeSolutions = data.solutions.filter((solution) => solution.isActive);
 
   return (
     <div className="grid gap-6">
@@ -1152,6 +1227,22 @@ export function CyclesWorkspace({
                     </option>
                   ))}
                 </optgroup>
+              ))}
+            </select>
+          </label>
+          <label className="grid gap-2 text-sm font-semibold text-slate-700">
+            Solution CIP
+            <select
+              name="solution_id"
+              required
+              disabled={activeSolutions.length === 0}
+              className="min-h-11 rounded-lg border border-slate-200 px-3 outline-none focus:border-formital-green disabled:cursor-not-allowed disabled:bg-slate-100"
+            >
+              <option value="">Selectionner une solution</option>
+              {activeSolutions.map((solution) => (
+                <option key={solution.id} value={solution.id}>
+                  {solution.name} - {solution.unit}
+                </option>
               ))}
             </select>
           </label>
@@ -1191,7 +1282,17 @@ export function CyclesWorkspace({
             <input name="observation" className="min-h-11 rounded-lg border border-slate-200 px-3 outline-none focus:border-formital-green" placeholder="Commentaire qualite" />
           </label>
           <ChecklistPreviewModal />
-          <button className="min-h-11 rounded-lg bg-formital-green px-4 font-bold text-white md:col-span-2 xl:col-span-4">Enregistrer le cycle</button>
+          <button
+            disabled={activeSolutions.length === 0}
+            className="min-h-11 rounded-lg bg-formital-green px-4 font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-300 md:col-span-2 xl:col-span-4"
+          >
+            Enregistrer le cycle
+          </button>
+          {activeSolutions.length === 0 ? (
+            <p className="text-sm font-semibold text-amber-700 md:col-span-2 xl:col-span-4">
+              Selectionnez une solution de nettoyage. Si la liste est vide, appliquez la migration des solutions.
+            </p>
+          ) : null}
         </form>
       </SectionCard>
     </div>
@@ -1451,6 +1552,7 @@ export function ReportsWorkspace({ data = fallbackData }: { data?: CipDashboardD
   const completed = data.cycles.filter((cycle) => cycle.status === "Termine").length;
   const today = new Date().toISOString().slice(0, 10);
   const thirtyDaysAgo = new Date(Date.now() - 29 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const activeSolutions = data.solutions.filter((solution) => solution.isActive);
 
   return (
     <div className="grid gap-6">
@@ -1490,6 +1592,17 @@ export function ReportsWorkspace({ data = fallbackData }: { data?: CipDashboardD
                 {data.equipments.map((equipment) => (
                   <option key={equipment.id} value={equipment.name}>
                     {equipment.name} - {equipment.line}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-2 text-sm font-semibold text-slate-700">
+              Solution CIP
+              <select name="solution" defaultValue="all" className="min-h-11 rounded-lg border border-slate-200 bg-white px-3 outline-none focus:border-formital-green">
+                <option value="all">Toutes les solutions</option>
+                {activeSolutions.map((solution) => (
+                  <option key={solution.id} value={solution.id}>
+                    {solution.name} - {solution.unit}
                   </option>
                 ))}
               </select>

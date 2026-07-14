@@ -1,6 +1,6 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
-import type { Alert, AlertSeverity, CipCycle, CycleResult, CycleStatus, Equipment } from "@/lib/cip/mock-data";
+import type { Alert, AlertSeverity, CipCycle, CipSolution, CipSolutionType, CycleResult, CycleStatus, Equipment } from "@/lib/cip/mock-data";
 import type { Profile } from "@/types/auth";
 
 export type DashboardMetrics = {
@@ -58,6 +58,7 @@ export type CipDashboardData = {
   dailyCycles: number[];
   waterConsumption: number[];
   detergentConsumption: number[];
+  solutions: CipSolution[];
   users: CipUser[];
   checklists: Record<string, ChecklistState>;
   source: "supabase" | "unavailable";
@@ -185,6 +186,7 @@ function emptyData(notice?: string): CipDashboardData {
     dailyCycles: [],
     waterConsumption: [],
     detergentConsumption: [],
+    solutions: [],
     users: [],
     checklists: {},
     source: "unavailable",
@@ -287,7 +289,17 @@ async function readAuthUsers(profile?: Pick<Profile, "role">) {
 export async function getCipDashboardData(profile?: Pick<Profile, "role">): Promise<CipDashboardData> {
   try {
     const supabase = createCipReadClient(profile);
-    const [cycleResult, equipmentResult, processResult, profileResult, alertResult, checklistResult, instructionResult, authUsersById] = await Promise.all([
+    const [
+      cycleResult,
+      equipmentResult,
+      processResult,
+      profileResult,
+      alertResult,
+      checklistResult,
+      instructionResult,
+      solutionResult,
+      authUsersById
+    ] = await Promise.all([
       readTable(supabase, "cip_cycles", "*", { column: "started_at", ascending: false }),
       readTable(supabase, "equipments", "*", { column: "created_at", ascending: true }),
       readTable(supabase, "processes", "*", { column: "created_at", ascending: true }),
@@ -295,6 +307,7 @@ export async function getCipDashboardData(profile?: Pick<Profile, "role">): Prom
       readTable(supabase, "cip_alerts", "*", { column: "created_at", ascending: false }),
       readTable(supabase, "cip_checklists", "*", { column: "created_at", ascending: false }),
       readTable(supabase, "cip_instructions", "*", { column: "created_at", ascending: true }),
+      readTable(supabase, "cip_solutions", "*", { column: "name", ascending: true }),
       readAuthUsers(profile)
     ]);
 
@@ -313,17 +326,35 @@ export async function getCipDashboardData(profile?: Pick<Profile, "role">): Prom
     const alertRows = alertResult.rows;
     const checklistRows = checklistResult.rows;
     const instructionRows = instructionResult.rows;
+    const solutionRows = solutionResult.error ? [] : solutionResult.rows;
 
     const equipmentsById = new Map(equipmentRows.map((equipment) => [text(equipment.id), equipment]));
     const processesById = new Map(processRows.map((process) => [text(process.id), process]));
     const profilesById = new Map(profileRows.map((profile) => [text(profile.id), profile]));
     const cycleRowsById = new Map(cycleRows.map((cycle) => [text(cycle.id), cycle]));
+    const solutions: CipSolution[] = solutionRows.map((solution, index) => {
+      const rawType = text(solution.solution_type, "other");
+      const solutionType: CipSolutionType = ["caustic", "acid", "water", "disinfectant", "other"].includes(rawType)
+        ? (rawType as CipSolutionType)
+        : "other";
+
+      return {
+        id: text(solution.id, `SOL-${index + 1}`),
+        name: text(solution.name, "Solution CIP"),
+        code: text(solution.code, `solution-${index + 1}`),
+        solutionType,
+        unit: text(solution.unit, "%"),
+        isActive: solution.is_active !== false
+      };
+    });
+    const solutionsById = new Map(solutions.map((solution) => [solution.id, solution]));
 
     const cycles: CipCycle[] = cycleRows.map((cycle, index) => {
       const equipment = equipmentsById.get(text(cycle.equipment_id));
       const process = processesById.get(text(cycle.process_id));
       const operator = profilesById.get(text(cycle.operator_id));
       const rawStatus = text(cycle.status, "draft");
+      const solution = solutionsById.get(text(cycle.solution_id));
       const isPlanned = ["draft", "planned", "ready"].includes(rawStatus);
       const displayDate = isPlanned ? cycle.planned_start_time ?? cycle.started_at : cycle.started_at;
       const soda = numberValue(cycle.soda_quantity);
@@ -342,6 +373,9 @@ export async function getCipDashboardData(profile?: Pick<Profile, "role">): Prom
         operatorId: text(cycle.operator_id) || null,
         equipment: text(equipment?.name, "Equipement non renseigne"),
         process: text(process?.name, "Programme CIP"),
+        solutionId: text(cycle.solution_id) || null,
+        solution: solution ? solution.name : "Solution non renseignee",
+        solutionType: solution?.solutionType ?? null,
         status: mapCycleStatus(cycle.status),
         result: mapCycleResult(cycle.result, cycle.status),
         operator: text(operator?.full_name, text(operator?.email, "Non assigne")),
@@ -352,6 +386,9 @@ export async function getCipDashboardData(profile?: Pick<Profile, "role">): Prom
         soda,
         acid,
         detergent: soda + acid,
+        concentrationUnit: text(cycle.concentration_unit, solution?.unit ?? "%"),
+        causticConcentration: numberValue(cycle.caustic_concentration),
+        acidConcentration: numberValue(cycle.acid_concentration),
         priority: text(cycle.priority, "normal"),
         instructions: text(cycle.instructions, ""),
         visualAspect: text(cycle.visual_aspect, "Non renseigne"),
@@ -468,6 +505,7 @@ export async function getCipDashboardData(profile?: Pick<Profile, "role">): Prom
       dailyCycles: lastTenDayCounts(cycles, cycleRowsById),
       waterConsumption: lastTenDaySums(cycles, cycleRowsById, "water"),
       detergentConsumption: lastTenDaySums(cycles, cycleRowsById, "detergent"),
+      solutions,
       users,
       checklists,
       source: "supabase",

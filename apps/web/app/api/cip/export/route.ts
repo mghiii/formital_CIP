@@ -26,6 +26,7 @@ function exportOptions(request: NextRequest): ReportOptions {
     startDate: params.get("start_date") ?? "",
     endDate: params.get("end_date") ?? "",
     equipment: params.get("equipment") ?? "all",
+    solution: params.get("solution") ?? "all",
     status: params.get("status") ?? "completed",
     result: params.get("result") ?? "all",
     includeCycles: boolParam(params, "include_cycles", hasExplicitIncludes),
@@ -57,11 +58,18 @@ function emptyRow(message: string, columns: number) {
   return `<tr><td colspan="${columns}" class="empty">${htmlCell(message)}</td></tr>`;
 }
 
+function selectedSolutionLabel(data: CipDashboardData, options: ReportOptions) {
+  return options.solution === "all"
+    ? "Toutes les solutions"
+    : data.solutions.find((solution) => solution.id === options.solution)?.name ?? options.solution;
+}
+
 function buildExcelReportHtml(data: CipDashboardData, options: ReportOptions, cycles: CipCycle[]) {
   const analytics = buildReportAnalytics(data, cycles);
   const { metrics } = analytics;
   const consumption = analytics.equipmentConsumption.slice(0, 8);
   const daily = analytics.dailyCounts.slice(-12);
+  const solutionLabel = selectedSolutionLabel(data, options);
   const maxWater = Math.max(...consumption.map((row) => row.water), 1);
   const maxDaily = Math.max(...daily.map((row) => row.count), 1);
   const cyclesRows = cycles
@@ -73,6 +81,9 @@ function buildExcelReportHtml(data: CipDashboardData, options: ReportOptions, cy
           <td>${htmlCell(cycle.equipment)}</td>
           <td>${htmlCell(workshop)}</td>
           <td>${htmlCell(cycle.process)}</td>
+          <td>${htmlCell(cycle.solution ?? "Non renseignee")}</td>
+          <td>${htmlCell(cycle.causticConcentration ?? "")} ${htmlCell(cycle.causticConcentration ? cycle.concentrationUnit ?? "%" : "")}</td>
+          <td>${htmlCell(cycle.acidConcentration ?? "")} ${htmlCell(cycle.acidConcentration ? cycle.concentrationUnit ?? "%" : "")}</td>
           <td>${htmlCell(cycle.duration)} min</td>
           <td>${htmlCell(cycle.targetDurationMinutes)} min</td>
           <td>${htmlCell(cycle.status)}</td>
@@ -148,6 +159,45 @@ function buildExcelReportHtml(data: CipDashboardData, options: ReportOptions, cy
       )
       .join("") || emptyRow("Aucun programme avec cycle termine dans cette selection.", 6);
 
+  const solutionRows =
+    analytics.solutionStats
+      .map(
+        (row) => `<tr>
+          <td>${htmlCell(row.solution)}</td>
+          <td>${htmlCell(row.type)}</td>
+          <td>${row.cycles}</td>
+          <td>${row.causticAverage} ${htmlCell(row.unit)}</td>
+          <td>${row.causticMin} ${htmlCell(row.unit)}</td>
+          <td>${row.causticMax} ${htmlCell(row.unit)}</td>
+          <td>${row.acidAverage} ${htmlCell(row.unit)}</td>
+          <td>${row.acidMin} ${htmlCell(row.unit)}</td>
+          <td>${row.acidMax} ${htmlCell(row.unit)}</td>
+          <td>${row.missingValues}</td>
+          <td>${row.compliance}%</td>
+        </tr>`
+      )
+      .join("") || emptyRow("Aucune donnee de concentration pour cette selection.", 11);
+
+  const workshopSolutionRows =
+    analytics.workshopSolutionStats
+      .map(
+        (row) => `<tr>
+          <td>${htmlCell(row.workshop)}</td>
+          <td>${row.cycles}</td>
+          <td>${row.causticCycles}</td>
+          <td>${row.acidCycles}</td>
+          <td>${row.causticAverage} ${htmlCell(row.unit)}</td>
+          <td>${row.causticMin} ${htmlCell(row.unit)}</td>
+          <td>${row.causticMax} ${htmlCell(row.unit)}</td>
+          <td>${row.acidAverage} ${htmlCell(row.unit)}</td>
+          <td>${row.acidMin} ${htmlCell(row.unit)}</td>
+          <td>${row.acidMax} ${htmlCell(row.unit)}</td>
+          <td>${row.missingValues}</td>
+          <td>${row.compliance}%</td>
+        </tr>`
+      )
+      .join("") || emptyRow("Aucun atelier avec concentration disponible.", 12);
+
   const rulesRows = analytics.analysisRules
     .map(
       (rule) => `<tr>
@@ -186,7 +236,7 @@ function buildExcelReportHtml(data: CipDashboardData, options: ReportOptions, cy
 <body>
   <div class="header">
     <h1>Formital CIP - ${htmlCell(reportTypeLabel(options.reportType))}</h1>
-    <div class="subtitle">Periode: ${htmlCell(periodLabel(options))} | Equipement: ${htmlCell(options.equipment === "all" ? "Tous les equipements" : options.equipment)}</div>
+    <div class="subtitle">Periode: ${htmlCell(periodLabel(options))} | Equipement: ${htmlCell(options.equipment === "all" ? "Tous les equipements" : options.equipment)} | Solution: ${htmlCell(solutionLabel)}</div>
   </div>
   <div class="cards">
     <div class="card"><div class="label">Cycles filtres</div><div class="value">${metrics.total}</div></div>
@@ -228,6 +278,20 @@ function buildExcelReportHtml(data: CipDashboardData, options: ReportOptions, cy
     </table>
   </div>
   <div class="section">
+    <h2>Solutions utilisees</h2>
+    <table>
+      <tr><th>Solution</th><th>Type</th><th>Cycles</th><th>Soude moy.</th><th>Soude min</th><th>Soude max</th><th>Acide moy.</th><th>Acide min</th><th>Acide max</th><th>Valeurs manquantes</th><th>Conformite</th></tr>
+      ${solutionRows}
+    </table>
+  </div>
+  <div class="section">
+    <h2>Concentration par atelier</h2>
+    <table>
+      <tr><th>Atelier</th><th>Cycles</th><th>Cycles soude</th><th>Cycles acide</th><th>Soude moy.</th><th>Soude min</th><th>Soude max</th><th>Acide moy.</th><th>Acide min</th><th>Acide max</th><th>Valeurs manquantes</th><th>Conformite</th></tr>
+      ${workshopSolutionRows}
+    </table>
+  </div>
+  <div class="section">
     <h2>Programmes CIP</h2>
     <table>
       <tr><th>Programme</th><th>Cycles</th><th>Conformite</th><th>Duree moyenne</th><th>Eau L</th><th>Detergent L</th></tr>
@@ -244,8 +308,8 @@ function buildExcelReportHtml(data: CipDashboardData, options: ReportOptions, cy
   <div class="section">
     <h2>Cycles CIP</h2>
     <table>
-      <tr><th>Date</th><th>Equipement</th><th>Atelier</th><th>Programme</th><th>Duree</th><th>Duree cible</th><th>Statut</th><th>Resultat</th><th>Operateur</th><th>Temp C</th><th>Eau L</th><th>Det. L</th><th>Soude L</th><th>Acide L</th><th>Aspect</th><th>Observation</th></tr>
-      ${cyclesRows || emptyRow("Aucun cycle dans cette selection.", 16)}
+      <tr><th>Date</th><th>Equipement</th><th>Atelier</th><th>Programme</th><th>Solution</th><th>Conc. soude</th><th>Conc. acide</th><th>Duree</th><th>Duree cible</th><th>Statut</th><th>Resultat</th><th>Operateur</th><th>Temp C</th><th>Eau L</th><th>Det. L</th><th>Soude L</th><th>Acide L</th><th>Aspect</th><th>Observation</th></tr>
+      ${cyclesRows || emptyRow("Aucun cycle dans cette selection.", 19)}
     </table>
   </div>
 </body>
@@ -455,7 +519,7 @@ function pdfVerticalHistogram(page: PdfPage, rows: HistogramRow[], bounds: Repor
   });
 }
 
-function addPdfHeader(page: PdfPage, title: string, options: ReportOptions, pageNumber: number) {
+function addPdfHeader(page: PdfPage, title: string, options: ReportOptions, pageNumber: number, solutionLabel?: string) {
   page.push(pdfRect(0, PDF_LAYOUT.pageHeight - PDF_LAYOUT.headerHeight, PDF_LAYOUT.pageWidth, PDF_LAYOUT.headerHeight, PDF_COLORS.green));
   page.push(pdfTextAt("Formital CIP", PDF_LAYOUT.pageMargin, PDF_LAYOUT.pageHeight - 25, 18, true, PDF_COLORS.white));
   page.push(pdfTextAt(title, PDF_LAYOUT.pageMargin, PDF_LAYOUT.pageHeight - 43, 9, false, "#d9f5df"));
@@ -470,6 +534,9 @@ function addPdfHeader(page: PdfPage, title: string, options: ReportOptions, page
       "#d9f5df"
     )
   );
+  if (solutionLabel) {
+    page.push(pdfTextAt(`Solution: ${pdfFitText(solutionLabel, 32)}`, PDF_LAYOUT.pageWidth - 292, PDF_LAYOUT.pageHeight - 53, 7, false, "#d9f5df"));
+  }
   page.push(pdfTextAt(`Page ${pageNumber}`, PDF_LAYOUT.pageWidth - 78, 18, 8, false, PDF_COLORS.muted));
 }
 
@@ -532,6 +599,135 @@ function addConsumptionPage(pages: string[], options: ReportOptions, rows: Retur
   pages.push(page.join("\n"));
 }
 
+function addSolutionsPage(
+  pages: string[],
+  options: ReportOptions,
+  data: CipDashboardData,
+  analytics: ReturnType<typeof buildReportAnalytics>,
+  pageNumber: number
+) {
+  const page: PdfPage = [];
+  addPdfHeader(page, "Solutions utilisees et concentrations", options, pageNumber, selectedSolutionLabel(data, options));
+
+  const columnWidth = (PDF_LAYOUT.pageWidth - PDF_LAYOUT.pageMargin * 2 - PDF_LAYOUT.columnGap) / 2;
+  const leftX = PDF_LAYOUT.pageMargin;
+  const rightX = leftX + columnWidth + PDF_LAYOUT.columnGap;
+  const top = PDF_LAYOUT.pageHeight - PDF_LAYOUT.headerHeight - PDF_LAYOUT.cardGap;
+  const upperHeight = 214;
+  const lowerY = PDF_LAYOUT.pageMargin + PDF_LAYOUT.footerHeight;
+  const upperY = top - upperHeight;
+  const lowerHeight = upperY - lowerY - PDF_LAYOUT.cardGap;
+  const solutionStats = analytics.solutionStats.slice(0, 8);
+  const workshopStats = analytics.workshopSolutionStats.slice(0, 8);
+
+  const solutionBounds = ReportChartCard(page, {
+    x: leftX,
+    y: upperY,
+    width: columnWidth,
+    height: upperHeight,
+    title: "Solutions utilisees",
+    subtitle: "Cycles termines par solution CIP"
+  });
+
+  if (solutionStats.length === 0) {
+    page.push(pdfTextAt("Aucune donnee de solution pour cette selection.", solutionBounds.x, solutionBounds.y + solutionBounds.height - 20, 9, true, PDF_COLORS.muted));
+  } else {
+    const maxSolutionCycles = Math.max(...solutionStats.map((row) => row.cycles), 1);
+    pdfHorizontalBars(
+      page,
+      solutionStats.map((row) => ({
+        label: row.solution,
+        value: row.cycles,
+        total: maxSolutionCycles,
+        valueText: `${row.cycles} cycles`,
+        color: row.type === "acid" ? PDF_COLORS.yellow : row.type === "caustic" ? PDF_COLORS.green : PDF_COLORS.blue
+      })),
+      solutionBounds
+    );
+  }
+
+  const concentrationBounds = ReportChartCard(page, {
+    x: rightX,
+    y: upperY,
+    width: columnWidth,
+    height: upperHeight,
+    title: "Concentration par atelier",
+    subtitle: "Moyenne soude et acide par atelier"
+  });
+
+  const concentrationRows = workshopStats.flatMap((row) => [
+    {
+      label: `${row.workshop} - Soude`,
+      value: row.causticAverage,
+      total: 1,
+      valueText: row.causticAverage > 0 ? `${row.causticAverage} ${row.unit}` : "Aucune mesure",
+      color: PDF_COLORS.green,
+      muted: row.causticAverage === 0
+    },
+    {
+      label: `${row.workshop} - Acide`,
+      value: row.acidAverage,
+      total: 1,
+      valueText: row.acidAverage > 0 ? `${row.acidAverage} ${row.unit}` : "Aucune mesure",
+      color: PDF_COLORS.yellow,
+      muted: row.acidAverage === 0
+    }
+  ]);
+  const maxConcentration = Math.max(...concentrationRows.map((row) => row.value), 1);
+
+  if (concentrationRows.length === 0) {
+    page.push(pdfTextAt("Aucune donnee de concentration.", concentrationBounds.x, concentrationBounds.y + concentrationBounds.height - 20, 9, true, PDF_COLORS.muted));
+  } else {
+    pdfHorizontalBars(
+      page,
+      concentrationRows.slice(0, 8).map((row) => ({ ...row, total: maxConcentration })),
+      concentrationBounds
+    );
+  }
+
+  const tableBounds = ReportChartCard(page, {
+    x: leftX,
+    y: lowerY,
+    width: PDF_LAYOUT.pageWidth - PDF_LAYOUT.pageMargin * 2,
+    height: lowerHeight,
+    title: "Tableau concentrations atelier",
+    subtitle: "Soude/acide: moyenne, min, max, valeurs manquantes et conformite"
+  });
+
+  if (workshopStats.length === 0) {
+    page.push(pdfTextAt("Aucune donnee de concentration pour cette selection.", tableBounds.x, tableBounds.y + tableBounds.height - 20, 9, true, PDF_COLORS.muted));
+  } else {
+    const headers = ["Atelier", "Cycles", "Soude moy/min/max", "Acide moy/min/max", "Manquantes", "Conformite"];
+    const widths = [180, 60, 150, 150, 85, 85];
+    let x = tableBounds.x;
+    const headerY = tableBounds.y + tableBounds.height - 24;
+    headers.forEach((header, index) => {
+      page.push(pdfTextAt(header, x, headerY, 7.5, true, PDF_COLORS.muted));
+      x += widths[index];
+    });
+    page.push(pdfLine(tableBounds.x, headerY - 7, tableBounds.x + tableBounds.width, headerY - 7, PDF_COLORS.line));
+
+    workshopStats.slice(0, 7).forEach((row, rowIndex) => {
+      const y = headerY - 24 - rowIndex * 22;
+      const cells = [
+        pdfFitText(row.workshop, 28),
+        String(row.cycles),
+        `${row.causticAverage}/${row.causticMin}/${row.causticMax} ${row.unit}`,
+        `${row.acidAverage}/${row.acidMin}/${row.acidMax} ${row.unit}`,
+        String(row.missingValues),
+        `${row.compliance}%`
+      ];
+      let cellX = tableBounds.x;
+      cells.forEach((cell, index) => {
+        page.push(pdfTextAt(cell, cellX, y, 7.5, index === 0, index === 0 ? PDF_COLORS.ink : PDF_COLORS.muted));
+        cellX += widths[index];
+      });
+    });
+  }
+
+  pages.push(page.join("\n"));
+}
+
 function buildPdf(data: CipDashboardData, options: ReportOptions, cycles: CipCycle[]) {
   const analytics = buildReportAnalytics(data, cycles);
   const { metrics } = analytics;
@@ -545,7 +741,7 @@ function buildPdf(data: CipDashboardData, options: ReportOptions, cycles: CipCyc
   const leftX = PDF_LAYOUT.pageMargin;
   const rightX = leftX + columnWidth + PDF_LAYOUT.columnGap;
 
-  addPdfHeader(page, reportTypeLabel(options.reportType), options, 1);
+  addPdfHeader(page, reportTypeLabel(options.reportType), options, 1, selectedSolutionLabel(data, options));
 
   const cards = [
     ["Cycles filtres", String(metrics.total), PDF_COLORS.greenSoft],
@@ -655,6 +851,8 @@ function buildPdf(data: CipDashboardData, options: ReportOptions, cycles: CipCyc
   if (consumption.length > firstPageConsumption.length) {
     addConsumptionPage(pages, options, consumption.slice(firstPageConsumption.length), pages.length + 1);
   }
+
+  addSolutionsPage(pages, options, data, analytics, pages.length + 1);
 
   return buildPdfDocument(pages);
 }

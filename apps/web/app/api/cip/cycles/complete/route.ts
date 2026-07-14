@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
   const db = createAdminSupabaseClient() ?? supabase;
   const { data: existingCycle } = await db
     .from("cip_cycles")
-    .select("id, operator_id, equipment_id, status")
+    .select("id, operator_id, equipment_id, status, solution_id, concentration_unit")
     .eq("id", cycleId)
     .single();
 
@@ -51,6 +51,9 @@ export async function POST(request: NextRequest) {
   const water = decimal(formData, "water_consumed_l");
   const soda = decimal(formData, "soda_quantity");
   const acid = decimal(formData, "acid_quantity");
+  const causticConcentration = decimal(formData, "caustic_concentration");
+  const acidConcentration = decimal(formData, "acid_concentration");
+  const concentrationUnit = String(existingCycle.concentration_unit ?? "%").trim() || "%";
 
   const payload = {
     status: "completed",
@@ -60,6 +63,9 @@ export async function POST(request: NextRequest) {
     water_consumed_l: water,
     soda_quantity: soda,
     acid_quantity: acid,
+    caustic_concentration: causticConcentration,
+    acid_concentration: acidConcentration,
+    concentration_unit: concentrationUnit,
     visual_aspect: String(formData.get("visual_aspect") ?? "").trim() || null,
     observation: observation || null
   };
@@ -79,8 +85,10 @@ export async function POST(request: NextRequest) {
     { parameter: "temperature", value: temperature, unit: "degC" },
     { parameter: "water_consumed", value: water, unit: "L" },
     { parameter: "soda_quantity", value: soda, unit: "L" },
-    { parameter: "acid_quantity", value: acid, unit: "L" }
-  ].filter((row): row is { parameter: string; value: number; unit: string } => row.value !== null);
+    { parameter: "acid_quantity", value: acid, unit: "L" },
+    { parameter: "concentration", value: causticConcentration, unit: concentrationUnit, component: "caustic" },
+    { parameter: "concentration", value: acidConcentration, unit: concentrationUnit, component: "acid" }
+  ].filter((row): row is { parameter: string; value: number; unit: string; component?: string } => row.value !== null);
 
   if (parameterRows.length > 0) {
     const parameterNames = parameterRows.map((row) => row.parameter);
@@ -94,6 +102,8 @@ export async function POST(request: NextRequest) {
     await db.from("cip_parameters").insert(
       parameterRows.map((row) => ({
         cycle_id: cycle.id,
+        solution_id: existingCycle.solution_id ?? null,
+        component: row.component ?? null,
         parameter: row.parameter,
         value: row.value,
         unit: row.unit,
