@@ -151,6 +151,30 @@ describe("coherence cycles CIP", () => {
     assert.match(views, /readiness\.hardBlockers\.length > 0/);
   });
 
+  it("automatise le demarrage planifie et la cloture a duree cible", () => {
+    const automation = read("apps/web/lib/cip/automation.ts");
+    const route = read("apps/web/app/api/cip/automation/tick/route.ts");
+    const ticker = read("apps/web/components/app/CipAutomationTicker.tsx");
+    const shell = read("apps/web/components/app/AppShell.tsx");
+
+    assert.match(automation, /runCipAutomationTick/);
+    assert.match(automation, /STARTABLE_CYCLE_STATUSES/);
+    assert.match(automation, /RUNNING_CYCLE_STATUSES/);
+    assert.match(automation, /planned_start_time/);
+    assert.match(automation, /hasCompleteChecklist/);
+    assert.match(automation, /startCycleThroughWorkflow/);
+    assert.match(automation, /targetEndTime/);
+    assert.match(automation, /status: "completed"/);
+    assert.match(automation, /Cycle cloture automatiquement a la duree cible/);
+    assert.match(route, /getRouteAuthContext/);
+    assert.match(route, /runCipAutomationTick/);
+    assert.match(route, /status: 401/);
+    assert.match(route, /status: 405/);
+    assert.match(ticker, /setInterval/);
+    assert.match(ticker, /router\.refresh/);
+    assert.match(shell, /CipAutomationTicker/);
+  });
+
   it("aligne le statut equipement cleaning avec compatibilite ancienne valeur", () => {
     const migration = read("supabase/migrations/20260713000200_equipment_status_consistency.sql");
     const data = read("apps/web/lib/cip/data.ts");

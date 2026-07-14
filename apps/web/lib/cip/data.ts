@@ -71,6 +71,13 @@ type TableReadResult = {
   error?: string;
 };
 
+type AuthUserSnapshot = {
+  id: string;
+  email: string;
+  createdAt: string;
+  lastSignInAt: string;
+};
+
 type SupabaseDataClient =
   | ReturnType<typeof createServerSupabaseClient>
   | NonNullable<ReturnType<typeof createAdminSupabaseClient>>;
@@ -255,17 +262,40 @@ async function readTable(
   };
 }
 
+async function readAuthUsers(profile?: Pick<Profile, "role">) {
+  const snapshots = new Map<string, AuthUserSnapshot>();
+  if (profile?.role !== "admin") return snapshots;
+
+  const admin = createAdminSupabaseClient();
+  if (!admin) return snapshots;
+
+  const { data, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  if (error) return snapshots;
+
+  for (const user of data.users ?? []) {
+    snapshots.set(user.id, {
+      id: user.id,
+      email: user.email ?? "",
+      createdAt: user.created_at ?? "",
+      lastSignInAt: user.last_sign_in_at ?? ""
+    });
+  }
+
+  return snapshots;
+}
+
 export async function getCipDashboardData(profile?: Pick<Profile, "role">): Promise<CipDashboardData> {
   try {
     const supabase = createCipReadClient(profile);
-    const [cycleResult, equipmentResult, processResult, profileResult, alertResult, checklistResult, instructionResult] = await Promise.all([
+    const [cycleResult, equipmentResult, processResult, profileResult, alertResult, checklistResult, instructionResult, authUsersById] = await Promise.all([
       readTable(supabase, "cip_cycles", "*", { column: "started_at", ascending: false }),
       readTable(supabase, "equipments", "*", { column: "created_at", ascending: true }),
       readTable(supabase, "processes", "*", { column: "created_at", ascending: true }),
       readTable(supabase, "profiles", "*", { column: "created_at", ascending: true }),
       readTable(supabase, "cip_alerts", "*", { column: "created_at", ascending: false }),
       readTable(supabase, "cip_checklists", "*", { column: "created_at", ascending: false }),
-      readTable(supabase, "cip_instructions", "*", { column: "created_at", ascending: true })
+      readTable(supabase, "cip_instructions", "*", { column: "created_at", ascending: true }),
+      readAuthUsers(profile)
     ]);
 
     const readErrors = [cycleResult, equipmentResult, processResult, profileResult, alertResult, checklistResult, instructionResult]
@@ -375,13 +405,15 @@ export async function getCipDashboardData(profile?: Pick<Profile, "role">): Prom
     });
 
     const users: CipDashboardData["users"] = profileRows.map((profile) => {
+      const id = text(profile.id);
+      const authUser = authUsersById.get(id);
       const rawRole = text(profile.role, "operator");
       const rawStatus = text(profile.status);
       const isActive = profile.is_active !== false && rawStatus !== "inactive";
 
       return {
-        id: text(profile.id),
-        email: text(profile.email, "email non renseigne"),
+        id,
+        email: text(profile.email, text(authUser?.email, "email non renseigne")),
         name: text(profile.full_name, text(profile.username, "Utilisateur Formital")),
         role: rawRole === "admin" || rawRole === "engineer" ? rawRole : "operator",
         status: rawStatus === "pending" ? "En attente" : isActive ? "Actif" : "Inactif",
@@ -391,8 +423,8 @@ export async function getCipDashboardData(profile?: Pick<Profile, "role">): Prom
         workshop: text(profile.workshop),
         rfidBadgeId: text(profile.rfid_badge_id, text(profile.badge_rfid)),
         avatarUrl: text(profile.avatar_url),
-        createdAt: text(profile.created_at),
-        lastSignInAt: text(profile.last_sign_in_at)
+        createdAt: text(profile.created_at, text(authUser?.createdAt)),
+        lastSignInAt: text(profile.last_sign_in_at, text(authUser?.lastSignInAt))
       };
     });
 

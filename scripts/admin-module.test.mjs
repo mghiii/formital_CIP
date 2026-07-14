@@ -107,10 +107,19 @@ describe("module administration utilisateurs", () => {
 
   it("alimente dashboard et audit admin depuis les donnees reelles", () => {
     const dashboard = read("apps/web/app/admin/dashboard/page.tsx");
+    const data = read("apps/web/lib/cip/data.ts");
     const audit = read("apps/web/app/admin/audit/page.tsx");
     assert.match(dashboard, /getCipDashboardData\(profile\)/);
     assert.match(dashboard, /data\.users/);
     assert.match(dashboard, /admin_audit_log/);
+    assert.match(dashboard, /adminHistory/);
+    assert.match(dashboard, /accountHistory/);
+    assert.match(dashboard, /auditTitle/);
+    assert.match(dashboard, /formatDateTime/);
+    assert.match(data, /readAuthUsers/);
+    assert.match(data, /admin\.auth\.admin\.listUsers/);
+    assert.match(data, /last_sign_in_at/);
+    assert.match(data, /lastSignInAt: text\(profile\.last_sign_in_at, text\(authUser\?\.lastSignInAt\)\)/);
     assert.match(dashboard, /operators/);
     assert.match(dashboard, /engineers/);
     assert.match(dashboard, /admins/);

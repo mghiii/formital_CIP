@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import type { ReactNode } from "react";
 import { useState } from "react";
+import { CipAutomationTicker } from "@/components/app/CipAutomationTicker";
 import { FormitalLogo } from "@/components/brand/FormitalLogo";
 import { ThemeToggle } from "@/components/app/ThemeToggle";
 import type { AppRole, Profile } from "@/types/auth";
@@ -261,6 +262,7 @@ export function AppShell({ profile, activePath, title, subtitle, children, actio
 
   return (
     <div className="min-h-dvh bg-[#f5f7f4] text-ink transition-colors dark:bg-[#07120d]">
+      <CipAutomationTicker />
       <aside className="fixed inset-y-0 left-0 hidden w-72 flex-col bg-formital-green text-white shadow-2xl transition-colors dark:bg-[#0d2f1b] lg:flex">
         <SidebarContent navItems={navItems} activePath={activePath} alertCount={alertCount} />
       </aside>

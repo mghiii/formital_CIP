@@ -16,7 +16,7 @@ type WorkflowPayload = {
   cycle_id?: unknown;
 };
 
-type RpcClient = {
+export type RpcClient = {
   rpc: (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: DatabaseError }>;
 };
 
